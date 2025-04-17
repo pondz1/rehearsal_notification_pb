@@ -111,18 +111,22 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'maintenance'
 
     def get_queryset(self):
-        # ปรับการ query ให้สอดคล้องกับโมเดล
-        base_query = MaintenanceRequest.objects.filter(
-            Q(requestor=self.request.user) |  # ผู้แจ้งซ่อม
-            Q(maintenanceassignment__technician=self.request.user)  # ช่างที่ได้รับมอบหมาย
-        ).prefetch_related(
+        base_query = MaintenanceRequest.objects.all()  # เริ่มต้นด้วย all()
+
+        # ถ้าไม่ใช่ staff จะกรองเฉพาะรายการที่เกี่ยวข้อง
+        if not self.request.user.is_staff:
+            base_query = base_query.filter(
+                Q(requestor=self.request.user) |  # ผู้แจ้งซ่อม
+                Q(maintenanceassignment__technician=self.request.user)  # ช่างที่ได้รับมอบหมาย
+            )
+
+        # เพิ่ม prefetch_related สำหรับข้อมูลที่เกี่ยวข้อง
+        return base_query.prefetch_related(
             'images',
             'comments',
             'comments__user',
-            'maintenanceassignment_set'  # โหลดข้อมูลการมอบหมายงาน
+            'maintenanceassignment_set'
         ).distinct()
-
-        return base_query
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -176,7 +180,6 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
                 image=image,
                 caption=caption,
                 is_before_image=is_before,
-                uploaded_by=request.user
             )
 
         messages.success(request, 'อัพโหลดรูปภาพสำเร็จ')
