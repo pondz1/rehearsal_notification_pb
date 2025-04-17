@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block title %}รายละเอียดการแจ้งซ่อม - {{ maintenance.title }}{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-lg overflow-hidden">
+    <!-- Header Section -->
+    <div class="p-6 border-b">
+        <div class="flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-900">{{ maintenance.title }}</h1>
+            <span class="px-4 py-2 rounded-full text-sm font-semibold
+                {% if maintenance.status == 'PENDING' %}bg-yellow-100 text-yellow-800
+                {% elif maintenance.status == 'IN_PROGRESS' %}bg-blue-100 text-blue-800
+                {% elif maintenance.status == 'COMPLETED' %}bg-green-100 text-green-800
+                {% else %}bg-red-100 text-red-800{% endif %}">
+                {{ maintenance.get_status_display }}
+            </span>
+        </div>
+        <div class="mt-2 text-sm text-gray-600">
+            แจ้งโดย: {{ maintenance.requestor.get_full_name }} | วันที่: {{ maintenance.created_at|date:"d/m/Y H:i" }}
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Left Column -->
+        <div>
+            <div class="mb-6">
+                <h2 class="text-lg font-semibold mb-2">รายละเอียด</h2>
+                <p class="text-gray-700">{{ maintenance.description }}</p>
+            </div>
+
+            <div class="mb-6">
+                <h2 class="text-lg font-semibold mb-2">ข้อมูลทั่วไป</h2>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <dl class="grid grid-cols-1 gap-2">
+                        <div class="flex justify-between">
+                            <dt class="text-gray-600">หมวดหมู่:</dt>
+                            <dd class="font-medium">{{ maintenance.category.name }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-gray-600">สถานที่:</dt>
+                            <dd class="font-medium">{{ maintenance.location }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-gray-600">ความสำคัญ:</dt>
+                            <dd class="font-medium">{{ maintenance.get_priority_display }}</dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div>
+            <!-- Images Section -->
+            <div class="mb-6">
+                <h2 class="text-lg font-semibold mb-2">รูปภาพ</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    {% for image in maintenance.request_images %}
+                    <div class="relative">
+                        <img src="{{ image.image.url }}" alt="{{ image.caption }}"
+                             class="w-full h-48 object-cover rounded-lg shadow">
+                        {% if image.caption %}
+                        <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2 rounded-b-lg">
+                            {{ image.caption }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <p class="col-span-2 text-gray-500 text-center py-4">ไม่มีรูปภาพ</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Add New Images -->
+            {% if maintenance.status != 'COMPLETED' %}
+            <form method="post" enctype="multipart/form-data" class="mb-6">
+                {% csrf_token %}
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                    <input type="file" name="new_images" multiple accept="image/*" class="w-full">
+                    <input type="text" name="caption" placeholder="คำอธิบายรูปภาพ" class="mt-2 w-full px-3 py-2 border rounded">
+                    <button type="submit" class="mt-2 w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">
+                        เพิ่มรูปภาพ
+                    </button>
+                </div>
+            </form>
+            {% endif %}
+
+            <!-- Comments Section -->
+            <div>
+                <h2 class="text-lg font-semibold mb-2">ความคิดเห็น</h2>
+                <div class="space-y-4">
+                    {% for comment in maintenance.comment_set.all %}
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-start">
+                            <div class="font-medium">{{ comment.user.get_full_name }}</div>
+                            <div class="text-sm text-gray-500">{{ comment.created_at|date:"d/m/Y H:i" }}</div>
+                        </div>
+                        <div class="mt-2 text-gray-700">{{ comment.content }}</div>
+                    </div>
+                    {% empty %}
+                    <p class="text-gray-500 text-center py-4">ยังไม่มีความคิดเห็น</p>
+                    {% endfor %}
+                </div>
+
+                <!-- Add Comment Form -->
+                <form method="post" class="mt-4">
+                    {% csrf_token %}
+                    {{ comment_form.content }}
+                    <button type="submit" name="comment" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        ส่งความคิดเห็น
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
