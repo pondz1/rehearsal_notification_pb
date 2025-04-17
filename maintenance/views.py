@@ -3,6 +3,7 @@ import json
 from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test, login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
@@ -81,7 +82,7 @@ class MaintenanceCreateView(LoginRequiredMixin, CreateView):
     model = MaintenanceRequest
     form_class = MaintenanceRequestForm
     template_name = 'maintenance/create.html'
-    success_url = reverse_lazy('maintenance_list')
+    success_url = reverse_lazy('maintenance:maintenance_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -109,45 +110,137 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
     template_name = 'maintenance/detail.html'
     context_object_name = 'maintenance'
 
+    def get_queryset(self):
+        # ปรับการ query ให้สอดคล้องกับโมเดล
+        base_query = MaintenanceRequest.objects.filter(
+            Q(requestor=self.request.user) |  # ผู้แจ้งซ่อม
+            Q(maintenanceassignment__technician=self.request.user)  # ช่างที่ได้รับมอบหมาย
+        ).prefetch_related(
+            'images',
+            'comments',
+            'comments__user',
+            'maintenanceassignment_set'  # โหลดข้อมูลการมอบหมายงาน
+        ).distinct()
+
+        return base_query
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['comment_form'] = CommentForm()
-        return context
+        maintenance = self.object
 
-    def get_queryset(self):
-        # ให้ดูได้เฉพาะรายการของตัวเอง
-        return MaintenanceRequest.objects.filter(requestor=self.request.user)
+        # ดึงข้อมูลการมอบหมายงานล่าสุด
+        assignment = maintenance.maintenanceassignment_set.first()
+
+        context.update({
+            'comment_form': CommentForm(),
+            'is_requestor': maintenance.requestor == self.request.user,
+            'is_technician': assignment and assignment.technician == self.request.user,
+            'can_edit': self.request.user.has_perm('maintenance.change_maintenancerequest'),
+            'can_approve': self.request.user.has_perm('maintenance.approve_maintenancerequest'),
+            'before_images': maintenance.images.filter(is_before_image=True),
+            'after_images': maintenance.images.filter(is_before_image=False),
+            'current_assignment': assignment,
+            'status_logs': maintenance.statuslog_set.all().order_by('-changed_at'),
+        })
+
+        return context
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
+        _action = request.POST.get('action')
 
-        # จัดการการอัพโหลดรูปภาพใหม่
-        if 'new_images' in request.FILES:
-            images = request.FILES.getlist('new_images')
-            caption = request.POST.get('caption', '')
+        if _action == 'upload_images':
+            return self._handle_image_upload(request)
+        elif _action == 'add_comment':
+            return self._handle_comment(request)
+        elif _action == 'update_status':
+            return self._handle_status_update(request)
+        elif _action == 'approve_request':
+            return self._handle_approval(request)
 
-            for image in images:
-                MaintenanceImage.objects.create(
-                    request=self.object,
-                    image=image,
-                    caption=caption,
-                    is_before_image=True
-                )
-            messages.success(request, 'อัพโหลดรูปภาพสำเร็จ')
+        messages.error(request, 'การดำเนินการไม่ถูกต้อง')
+        return redirect('maintenance:maintenance_detail', pk=self.object.pk)
 
-        # จัดการการเพิ่มความคิดเห็น
-        elif 'comment' in request.POST:
-            form = CommentForm(request.POST)
-            if form.is_valid():
-                comment = form.save(commit=False)
-                comment.maintenance_request = self.object
-                comment.user = request.user
-                comment.save()
-                messages.success(request, 'เพิ่มความคิดเห็นสำเร็จ')
-            else:
-                messages.error(request, 'กรุณาตรวจสอบข้อมูลที่กรอก')
+    def _handle_image_upload(self, request):
+        if 'images' not in request.FILES:
+            messages.error(request, 'กรุณาเลือกรูปภาพ')
+            return redirect('maintenance:maintenance_detail', pk=self.object.pk)
 
-        return redirect('maintenance_detail', pk=self.object.pk)
+        images = request.FILES.getlist('images')
+        caption = request.POST.get('caption', '')
+        is_before = request.POST.get('image_type') == 'before'
+
+        for image in images:
+            MaintenanceImage.objects.create(
+                request=self.object,
+                image=image,
+                caption=caption,
+                is_before_image=is_before,
+                uploaded_by=request.user
+            )
+
+        messages.success(request, 'อัพโหลดรูปภาพสำเร็จ')
+        return redirect('maintenance:maintenance_detail', pk=self.object.pk)
+
+    def _handle_comment(self, request):
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.maintenance_request = self.object
+            comment.user = request.user
+            comment.save()
+
+            # สร้างการแจ้งเตือนสำหรับผู้ที่เกี่ยวข้อง
+            self._create_comment_notification(comment)
+
+            messages.success(request, 'เพิ่มความคิดเห็นสำเร็จ')
+        else:
+            messages.error(request, 'กรุณาตรวจสอบข้อมูลที่กรอก')
+        return redirect('maintenance:maintenance_detail', pk=self.object.pk)
+
+    def _handle_status_update(self, request):
+        # if not request.user.has_perm('maintenance.change_status'):
+        #     messages.error(request, 'คุณไม่มีสิทธิ์ในการเปลี่ยนสถานะ')
+        #     return redirect('maintenance:maintenance_detail', pk=self.object.pk)
+
+        new_status = request.POST.get('status')
+        if new_status in dict(MaintenanceRequest.STATUS_CHOICES):
+            old_status = self.object.status
+            self.object.status = new_status
+            self.object.save()
+
+            # บันทึกประวัติการเปลี่ยนสถานะ
+            StatusLog.objects.create(
+                maintenance_request=self.object,
+                changed_by=request.user,
+                old_status=old_status,
+                new_status=new_status
+            )
+
+            messages.success(request, 'อัพเดทสถานะสำเร็จ')
+        else:
+            messages.error(request, 'สถานะไม่ถูกต้อง')
+        return redirect('maintenance:maintenance_detail', pk=self.object.pk)
+
+    def _create_comment_notification(self, comment):
+        maintenance = self.object
+        recipients = {maintenance.requestor}
+
+        # เพิ่มช่างที่ได้รับมอบหมายในการแจ้งเตือน
+        assignment = maintenance.maintenanceassignment_set.first()
+        if assignment:
+            recipients.add(assignment.technician)
+
+        # ไม่ส่งการแจ้งเตือนถึงผู้แสดงความคิดเห็นเอง
+        recipients.discard(comment.user)
+
+        for recipient in recipients:
+            send_notification(
+                user_id=recipient.id,
+                title=f"ความคิดเห็นใหม่ในงานซ่อมบำรุง #{maintenance.id}",
+                message=f"{comment.user.get_full_name()} ได้แสดงความคิดเห็น: {comment.content[:100]}...",
+                maintenance_request=maintenance
+            )
 
 
 def is_staff_check(user):
@@ -218,11 +311,18 @@ def approve_request(request, pk):
             note=note
         )
 
+        MaintenanceAssignment.objects.create(
+            request=maintenance,
+            technician=technician,
+            notes=note
+        )
+
         # Send notification to technician
         send_notification(
             user_id=technician.id,
             title='งานซ่อมใหม่',
-            message=f'คุณได้รับมอบหมายงานซ่อม: {maintenance.title}'
+            message=f'คุณได้รับมอบหมายงานซ่อม: {maintenance.title}',
+            maintenance_request=maintenance,
         )
 
         return JsonResponse({'success': True})
@@ -258,13 +358,30 @@ class ReportsView(LoginRequiredMixin, TemplateView):
 
 
 class NotificationListView(LoginRequiredMixin, ListView):
-    template_name = 'maintenance/notifications.html'
     model = Notification
+    template_name = 'notifications/notification_list.html'
     context_object_name = 'notifications'
-    paginate_by = 20
+    paginate_by = 10  # จำนวนการแจ้งเตือนต่อหน้า
 
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user)
+        # ดึงเฉพาะการแจ้งเตือนของผู้ใช้ที่ login
+        return Notification.objects.filter(
+            user=self.request.user
+        ).order_by('-created_at')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # อัพเดทสถานะว่าผู้ใช้ได้เห็นการแจ้งเตือนแล้ว
+        unread_notifications = self.get_queryset().filter(is_read=False)
+        unread_notifications.update(
+            is_read=True,
+            read_at=timezone.now()
+        )
+        # เพิ่มจำนวนการแจ้งเตือนที่ยังไม่ได้อ่าน
+        context['unread_count'] = self.request.user.notifications.filter(
+            is_read=False
+        ).count()
+        return context
 
 
 # API Views

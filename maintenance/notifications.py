@@ -22,7 +22,7 @@ def send_line_notify(token, message):
         return False
 
 
-def send_notification(user_id, title, message):
+def send_notification(user_id, title, message, maintenance_request):
     """
     ส่งการแจ้งเตือนผ่านหลายช่องทาง: Email, LINE Notify, และ In-app notification
     """
@@ -34,7 +34,8 @@ def send_notification(user_id, title, message):
     Notification.objects.create(
         user=user,
         title=title,
-        message=message
+        message=message,
+        maintenance_request=maintenance_request,
     )
 
     # ส่ง Email

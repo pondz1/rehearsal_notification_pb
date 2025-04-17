@@ -1,5 +1,7 @@
+from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import User
+from django.urls import reverse
 from django.utils import timezone
 
 
@@ -50,9 +52,13 @@ class MaintenanceRequest(models.Model):
     def request_images(self):
         return self.maintenanceimage_set.all()
 
+    permissions = [
+        ("change_status", "Can change maintenance status"),
+    ]
+
 
 class MaintenanceImage(models.Model):
-    request = models.ForeignKey(MaintenanceRequest, on_delete=models.CASCADE)
+    request = models.ForeignKey(MaintenanceRequest, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(upload_to='maintenance_images/%Y/%m/%d/')
     caption = models.CharField(max_length=200, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -116,7 +122,7 @@ class PartsRequest(models.Model):
 
 
 class Comment(models.Model):
-    maintenance_request = models.ForeignKey(MaintenanceRequest, on_delete=models.CASCADE)
+    maintenance_request = models.ForeignKey(MaintenanceRequest, on_delete=models.CASCADE, related_name='comments')
     user = models.ForeignKey(User, on_delete=models.PROTECT)
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -148,15 +154,41 @@ class Approval(models.Model):
 
 
 class Notification(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    title = models.CharField(max_length=200)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+    title = models.CharField(max_length=255)
     message = models.TextField()
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+    maintenance_request = models.ForeignKey(
+        'MaintenanceRequest',  # หรือชื่อโมเดลงานของคุณ
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
 
     class Meta:
         ordering = ['-created_at']
 
+    def __str__(self):
+        return f"{self.title} - {self.user.username}"
+
+    def mark_as_read(self):
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save()
+
+    def get_absolute_url(self):
+        """สร้าง URL สำหรับดูรายละเอียดงาน"""
+        if self.maintenance_request:
+            return reverse('maintenance:maintenance_detail',
+                           kwargs={'pk': self.maintenance_request.pk})
+        return '#'
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
