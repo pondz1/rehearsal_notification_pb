@@ -123,3 +123,47 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"Comment by {self.user.username} on {self.maintenance_request.title}"
+
+
+class StatusLog(models.Model):
+    maintenance_request = models.ForeignKey(MaintenanceRequest, on_delete=models.CASCADE)
+    changed_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    old_status = models.CharField(max_length=20, choices=MaintenanceRequest.STATUS_CHOICES)
+    new_status = models.CharField(max_length=20, choices=MaintenanceRequest.STATUS_CHOICES)
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-changed_at']
+
+
+class Approval(models.Model):
+    maintenance_request = models.ForeignKey(MaintenanceRequest, on_delete=models.CASCADE)
+    approved_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='approvals_given')
+    technician = models.ForeignKey(User, on_delete=models.CASCADE, related_name='assigned_approvals')
+    note = models.TextField(blank=True)
+    approved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-approved_at']
+
+
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    line_token = models.CharField(max_length=200, blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    department = models.CharField(max_length=100, blank=True, null=True)
+    position = models.CharField(max_length=100, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user.get_full_name()}'s Profile"

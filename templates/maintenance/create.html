@@ -130,7 +130,7 @@ document.getElementById('maintenanceForm').onsubmit = function(e) {
     })
     .then(response => {
         if (response.ok) {
-            window.location.href = "{% url 'maintenance_list' %}";
+            window.location.href = "{% url 'maintenance:maintenance_list' %}";
         }
     })
     .catch(error => {

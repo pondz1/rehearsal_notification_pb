@@ -145,3 +145,30 @@ MESSAGE_TAGS = {
     messages.WARNING: 'bg-yellow-100 text-yellow-800',
     messages.ERROR: 'bg-red-100 text-red-800',
 }
+
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'your-email@gmail.com'
+EMAIL_HOST_PASSWORD = 'your-app-specific-password'
+DEFAULT_FROM_EMAIL = 'Maintenance System <your-email@gmail.com>'
+
+# Notification Settings
+NOTIFICATION_CHANNELS = {
+    'email': True,
+    'line': True,
+    'in_app': True
+}
+MAINTENANCE_PERMISSIONS = {
+    'can_manage_maintenance': 'maintenance.can_manage_maintenance',
+    'can_assign_technician': 'maintenance.can_assign_technician',
+    'can_update_status': 'maintenance.can_update_status',
+    'can_view_reports': 'maintenance.can_view_reports',
+}
+
+# เพิ่ม Login/Logout URLs
+LOGIN_REDIRECT_URL = '/'  # หน้าที่จะ redirect หลังจาก login สำเร็จ
+LOGOUT_REDIRECT_URL = '/accounts/login/'  # หน้าที่จะ redirect หลังจาก logout
+LOGIN_URL = '/accounts/login/'  # URL สำหรับหน้า login

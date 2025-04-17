@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -6,7 +7,9 @@
     <title>{% block title %}ระบบแจ้งซ่อม{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.css" rel="stylesheet"/>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    {% block extra_css %}{% endblock %}
     <style>
         /* Custom form styles */
         input[type="text"],
@@ -34,50 +37,222 @@
     </style>
 </head>
 <body class="bg-gray-50">
-    <!-- Navbar -->
-    <nav class="bg-white border-gray-200 dark:bg-gray-900">
-        <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
-            <a href="/" class="flex items-center space-x-3 rtl:space-x-reverse">
-                <span class="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">ระบบแจ้งซ่อม</span>
-            </a>
-            <div class="flex items-center md:order-2 space-x-3 md:space-x-0 rtl:space-x-reverse">
-                {% if user.is_authenticated %}
-                    <button type="button" class="flex text-sm bg-gray-800 rounded-full md:me-0 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600" id="user-menu-button">
-                        <span class="sr-only">Open user menu</span>
-                        <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                            {{ user.first_name|first|upper }}
-                        </div>
-                    </button>
-                {% else %}
-                    <a href="{% url 'login' %}" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5">เข้าสู่ระบบ</a>
-                {% endif %}
+<!-- Navbar -->
+<nav class="bg-gray-800" x-data="{ mobileMenu: false }">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+            <!-- Logo และ Main Menu -->
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <a href="{% url 'maintenance:maintenance_list' %}"
+                       class="text-white font-bold text-xl">ระบบแจ้งซ่อม</a>
+                </div>
+
+                <!-- Desktop Menu -->
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="{% url 'maintenance:maintenance_list' %}"
+                           class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                            รายการแจ้งซ่อม
+                        </a>
+
+                        <a href="{% url 'maintenance:maintenance_create' %}"
+                           class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                            แจ้งซ่อมใหม่
+                        </a>
+
+                        {% if user.is_staff %}
+                            <a href="{% url 'maintenance:maintenance_manage' %}"
+                               class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                จัดการรายการแจ้งซ่อม
+                            </a>
+
+                            <a href="{% url 'maintenance:reports' %}"
+                               class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                รายงานสถิติ
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
-            <div class="items-center justify-between hidden w-full md:flex md:w-auto md:order-1" id="navbar-user">
-                <ul class="flex flex-col font-medium p-4 md:p-0 mt-4 border border-gray-100 rounded-lg bg-gray-50 md:space-x-8 rtl:space-x-reverse md:flex-row md:mt-0 md:border-0 md:bg-white dark:bg-gray-800 md:dark:bg-gray-900 dark:border-gray-700">
-                    <li>
-                        <a href="{% url 'maintenance_list' %}" class="block py-2 px-3 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent dark:border-gray-700">รายการแจ้งซ่อม</a>
-                    </li>
-                    <li>
-                        <a href="{% url 'maintenance_create' %}" class="block py-2 px-3 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent dark:border-gray-700">แจ้งซ่อมใหม่</a>
-                    </li>
-                </ul>
+
+            <!-- User Menu & Notifications -->
+            <div class="hidden md:block">
+                <div class="ml-4 flex items-center md:ml-6">
+                    <!-- Notifications -->
+                    <div class="relative" x-data="{ notificationCount: 0 }" x-init="
+                        fetch('{% url 'maintenance:notification_count' %}')
+                            .then(response => response.json())
+                            .then(data => notificationCount = data.count)
+                    ">
+                        <a href="{% url 'maintenance:notifications' %}"
+                           class="text-gray-400 hover:text-white p-1 rounded-full relative">
+                            <span class="sr-only">การแจ้งเตือน</span>
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                            </svg>
+                            <span x-show="notificationCount > 0"
+                                  x-text="notificationCount"
+                                  class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs">
+                            </span>
+                        </a>
+                    </div>
+
+                    <!-- Profile Dropdown -->
+                    <div class="ml-3 relative" x-data="{ open: false }">
+                        <div>
+                            <button @click="open = !open"
+                                    class="max-w-xs bg-gray-800 rounded-full flex items-center text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white"
+                                    id="user-menu-button">
+                                <span class="sr-only">เปิดเมนูผู้ใช้</span>
+                                <img class="h-8 w-8 rounded-full"
+                                     src="https://ui-avatars.com/api/?name={{ user.get_full_name|urlencode }}&background=random"
+                                     alt="{{ user.get_full_name }}">
+                            </button>
+                        </div>
+
+                        <div x-show="open"
+                             @click.away="open = false"
+                             class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none"
+                             role="menu">
+                            <a href="{% url 'maintenance:profile' %}"
+                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                               role="menuitem">
+                                โปรไฟล์
+                            </a>
+
+                            <a href="{% url 'maintenance:settings' %}"
+                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                               role="menuitem">
+                                ตั้งค่า
+                            </a>
+
+                            <form method="post" action="{% url 'logout' %}">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        role="menuitem">
+                                    ออกจากระบบ
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile menu button -->
+            <div class="-mr-2 flex md:hidden">
+                <button type="button"
+                        @click="mobileMenu = !mobileMenu"
+                        class="bg-gray-800 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white">
+                    <span class="sr-only">เปิดเมนูหลัก</span>
+                    <svg class="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                         stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
             </div>
         </div>
-    </nav>
+    </div>
 
-    <!-- Main Content -->
-    <div class="container mx-auto px-4 py-8">
-        {% if messages %}
+    <!-- Mobile menu -->
+    <div class="md:hidden" x-show="mobileMenu" @click.away="mobileMenu = false">
+        <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+            <a href="{% url 'maintenance:maintenance_list' %}"
+               class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                รายการแจ้งซ่อม
+            </a>
+
+            <a href="{% url 'maintenance:maintenance_create' %}"
+               class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                แจ้งซ่อมใหม่
+            </a>
+
+            {% if user.is_staff %}
+                <a href="{% url 'maintenance:maintenance_manage' %}"
+                   class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                    จัดการรายการแจ้งซ่อม
+                </a>
+
+                <a href="{% url 'maintenance:reports' %}"
+                   class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                    รายงานสถิติ
+                </a>
+            {% endif %}
+        </div>
+
+        <!-- Mobile profile section -->
+        <div class="pt-4 pb-3 border-t border-gray-700">
+            <div class="flex items-center px-5">
+                <div class="flex-shrink-0">
+                    <img class="h-10 w-10 rounded-full"
+                         src="https://ui-avatars.com/api/?name={{ user.get_full_name|urlencode }}&background=random"
+                         alt="{{ user.get_full_name }}">
+                </div>
+                <div class="ml-3">
+                    <div class="text-base font-medium leading-none text-white">{{ user.get_full_name }}</div>
+                    <div class="text-sm font-medium leading-none text-gray-400">{{ user.email }}</div>
+                </div>
+                <div class="ml-auto">
+                    <a href="{% url 'maintenance:notifications' %}"
+                       class="flex-shrink-0 bg-gray-800 p-1 rounded-full text-gray-400 hover:text-white">
+                        <span class="sr-only">ดูการแจ้งเตือน</span>
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+            <div class="mt-3 px-2 space-y-1">
+                <a href="{% url 'maintenance:profile' %}"
+                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-400 hover:text-white hover:bg-gray-700">
+                    โปรไฟล์
+                </a>
+
+                <a href="{% url 'maintenance:settings' %}"
+                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-400 hover:text-white hover:bg-gray-700">
+                    ตั้งค่า
+                </a>
+
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-400 hover:text-white hover:bg-gray-700">
+                        ออกจากระบบ
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<main class="container mx-auto px-4 py-8">
+    {% if messages %}
+        <div class="mb-4">
             {% for message in messages %}
-                <div class="mb-4 p-4 {% if message.tags == 'success' %}bg-green-100 text-green-700{% elif message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %} rounded">
+                <div class="p-4 rounded-md {% if message.tags == 'success' %}bg-green-100 text-green-700{% elif message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">
                     {{ message }}
                 </div>
             {% endfor %}
-        {% endif %}
+        </div>
+    {% endif %}
 
-        {% block content %}{% endblock %}
+    {% block content %}
+    {% endblock %}
+</main>
+
+<!-- Footer -->
+<footer class="bg-gray-800 text-white py-4 mt-8">
+    <div class="container mx-auto px-4">
+        <p class="text-center">&copy; {% now "Y" %} ระบบแจ้งซ่อม. All rights reserved.</p>
     </div>
+</footer>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.js"></script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>
