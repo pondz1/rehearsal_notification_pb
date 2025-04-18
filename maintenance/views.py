@@ -577,6 +577,17 @@ def evaluate_request(request, pk):
     if maintenance.status not in ['ASSIGNED', 'EVALUATING'] or hasattr(maintenance, 'evaluation'):
         messages.error(request, 'ไม่สามารถประเมินงานนี้ได้')
         return redirect('maintenance:maintenance_detail', pk=maintenance.pk)
+    old_status = maintenance.status
+
+    maintenance.status = 'EVALUATING'
+    maintenance.save()
+
+    StatusLog.objects.create(
+        maintenance_request=maintenance,
+        changed_by=request.user,
+        old_status=old_status,
+        new_status=maintenance.status,
+    )
 
     if request.method == 'POST':
         # ดำเนินการประเมินงาน
