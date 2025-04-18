@@ -18,11 +18,18 @@ class MaintenanceCategory(models.Model):
 
 
 class MaintenanceRequest(models.Model):
+    # Add to MaintenanceRequest.STATUS_CHOICES
     STATUS_CHOICES = [
         ('PENDING', 'Pending'),
-        ('APPROVED', 'Approved'),
+        ('ASSIGNED', 'Assigned'),  # When technician is assigned
+        ('EVALUATING', 'Evaluating'),  # When technician is evaluating
+        ('EVALUATED', 'Evaluated'),  # After evaluation, before approval for repair
+        ('APPROVED', 'Approved'),  # Approved to proceed with repair
         ('IN_PROGRESS', 'In Progress'),
         ('COMPLETED', 'Completed'),
+        ('OUTSOURCED', 'Outsourced'),  # Requires external contractor
+        ('TRANSFERRED', 'Transferred to Central'),  # Sent to central department
+        ('NEED_PARTS', 'Waiting for Parts'),  # Needs parts before repair
         ('REJECTED', 'Rejected')
     ]
 
@@ -44,6 +51,17 @@ class MaintenanceRequest(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     scheduled_date = models.DateTimeField(null=True, blank=True)
     completion_date = models.DateTimeField(null=True, blank=True)
+
+    # Add approval fields
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_maintenance_requests'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approval_note = models.TextField(blank=True)
 
     def __str__(self):
         return f"{self.title} - {self.status}"
@@ -85,13 +103,21 @@ class CompletionImage(models.Model):
 
 
 class MaintenanceAssignment(models.Model):
-    request = models.ForeignKey(MaintenanceRequest, on_delete=models.CASCADE)
-    technician = models.ForeignKey(User, on_delete=models.PROTECT)
+    """Model for tracking maintenance request assignments to technicians"""
+    maintenance_request = models.ForeignKey('MaintenanceRequest', on_delete=models.CASCADE)
+    technician = models.ForeignKey(User, on_delete=models.PROTECT, related_name='maintenance_assignments')
+    assigned_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name='maintenance_assignments_made')
     assigned_at = models.DateTimeField(auto_now_add=True)
-    notes = models.TextField(blank=True)
+    note = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-assigned_at']
+        permissions = [
+            ("can_assign_maintenance", "Can assign maintenance requests to technicians"),
+        ]
 
     def __str__(self):
-        return f"{self.request.title} - {self.technician.username}"
+        return f"Assignment #{self.id} - {self.maintenance_request.title}"
 
 
 class Parts(models.Model):
@@ -210,3 +236,34 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
+
+
+class RepairEvaluation(models.Model):
+    EVALUATION_RESULT = [
+        ('CAN_FIX', 'สามารถซ่อมได้'),
+        ('OUTSOURCE', 'ต้องจ้างภายนอก'),
+        ('CENTRAL_DEPT', 'ส่งกองกลาง'),
+        ('NEED_PARTS', 'ต้องการอะไหล่ก่อนซ่อม'),
+    ]
+
+    maintenance_request = models.OneToOneField(MaintenanceRequest, on_delete=models.CASCADE, related_name='evaluation')
+    technician = models.ForeignKey(User, on_delete=models.PROTECT)
+    result = models.CharField(max_length=20, choices=EVALUATION_RESULT)
+    notes = models.TextField(blank=True)
+    estimated_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    estimated_time = models.IntegerField(help_text="Estimated time in hours", null=True, blank=True)
+    parts_needed = models.TextField(blank=True, help_text="List of parts needed for repair")
+    evaluated_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Evaluation for {self.maintenance_request.title}"
+
+
+class EvaluationImage(models.Model):
+    evaluation = models.ForeignKey(RepairEvaluation, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='evaluation_images/%Y/%m/%d/')
+    caption = models.CharField(max_length=200, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Image for evaluation #{self.evaluation.id}"

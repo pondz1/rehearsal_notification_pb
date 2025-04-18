@@ -2,14 +2,14 @@ import json
 from datetime import datetime, timedelta
 
 from django.contrib import messages
-from django.contrib.auth.decorators import user_passes_test, login_required
+from django.contrib.auth.decorators import user_passes_test, login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q, Count
 from django.http import JsonResponse
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST, require_GET
 from django.views.generic import CreateView, DetailView
 from django.views.generic import TemplateView, ListView, UpdateView
 from rest_framework import viewsets, status
@@ -136,7 +136,7 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
         # ดึงข้อมูลการมอบหมายงานล่าสุด
         assignment = maintenance.maintenanceassignment_set.first()
         status_allows_edit = maintenance.status not in ['COMPLETED', 'REJECTED']
-        status_allows_approve = maintenance.status not in ['PENDING']
+        status_allows_approve = maintenance.status in ['EVALUATED']
 
         context.update({
             'comment_form': CommentForm(),
@@ -150,6 +150,28 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
             'status_logs': maintenance.statuslog_set.all().order_by('-changed_at'),
             'technicians': User.objects.filter(groups__name='Technicians'),
         })
+
+        # เช็คว่าผู้ใช้เป็นช่างที่ได้รับมอบหมายหรือไม่
+        is_assigned_technician = assignment and assignment.technician == self.request.user
+
+        # เช็คว่ารายการนี้มีการประเมินแล้วหรือยัง
+        has_evaluation = hasattr(maintenance, 'evaluation')
+
+        # เช็คสถานะที่อนุญาตให้ประเมินได้
+        can_evaluate = is_assigned_technician and maintenance.status in ['ASSIGNED',
+                                                                         'EVALUATING'] and not has_evaluation
+
+        # เพิ่มข้อมูลเกี่ยวกับการประเมิน
+        context.update({
+            'is_assigned_technician': is_assigned_technician,
+            'can_evaluate': can_evaluate,
+            'has_evaluation': has_evaluation,
+            'evaluation': getattr(maintenance, 'evaluation', None),
+            'evaluation_results': RepairEvaluation.EVALUATION_RESULT,
+        })
+
+        if hasattr(self.object, 'evaluation') and self.object.evaluation.parts_needed:
+            context['parts_list'] = self.object.evaluation.parts_needed.strip().split('\n')
 
         return context
 
@@ -165,9 +187,99 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
             return self._handle_status_update(request)
         elif _action == 'approve_request':
             return self._handle_approval(request)
+        elif _action == 'evaluate_request':
+            return self._handle_evaluation(request)
 
         messages.error(request, 'การดำเนินการไม่ถูกต้อง')
         return redirect('maintenance:maintenance_detail', pk=self.object.pk)
+
+    def _handle_evaluation(self, request):
+        # ตรวจสอบว่าผู้ใช้เป็นช่างที่ได้รับมอบหมายหรือไม่
+        assignment = self.object.maintenanceassignment_set.filter(technician=request.user).first()
+        if not assignment:
+            messages.error(request, 'คุณไม่ได้รับมอบหมายให้ประเมินงานนี้')
+            return redirect('maintenance:maintenance_detail', pk=self.object.pk)
+
+        # ตรวจสอบว่าสามารถประเมินได้หรือไม่
+        if self.object.status not in ['ASSIGNED', 'EVALUATING'] or hasattr(self.object, 'evaluation'):
+            messages.error(request, 'ไม่สามารถประเมินงานนี้ได้')
+            return redirect('maintenance:maintenance_detail', pk=self.object.pk)
+
+        # ดำเนินการประเมิน
+        result = request.POST.get('result')
+        if result not in dict(RepairEvaluation.EVALUATION_RESULT):
+            messages.error(request, 'ผลการประเมินไม่ถูกต้อง')
+            return redirect('maintenance:maintenance_detail', pk=self.object.pk)
+
+        # สร้างบันทึกการประเมิน
+        evaluation = RepairEvaluation.objects.create(
+            maintenance_request=self.object,
+            technician=request.user,
+            result=result,
+            notes=request.POST.get('notes', ''),
+            estimated_cost=request.POST.get('estimated_cost') or None,
+            estimated_time=request.POST.get('estimated_time') or None,
+            parts_needed=request.POST.get('parts_needed', '')
+        )
+
+        # อัพโหลดรูปภาพประกอบการประเมิน (ถ้ามี)
+        if 'evaluation_images' in request.FILES:
+            images = request.FILES.getlist('evaluation_images')
+            for image in images:
+                EvaluationImage.objects.create(
+                    evaluation=evaluation,
+                    image=image,
+                    caption=request.POST.get('image_caption', '')
+                )
+
+        # อัพเดทสถานะตามผลการประเมิน
+        old_status = self.object.status
+        if result == 'CAN_FIX':
+            self.object.status = 'EVALUATED'
+        elif result == 'OUTSOURCE':
+            self.object.status = 'OUTSOURCED'
+        elif result == 'CENTRAL_DEPT':
+            self.object.status = 'TRANSFERRED'
+        elif result == 'NEED_PARTS':
+            self.object.status = 'NEED_PARTS'
+
+        self.object.save()
+
+        # บันทึกประวัติการเปลี่ยนสถานะ
+        StatusLog.objects.create(
+            maintenance_request=self.object,
+            changed_by=request.user,
+            old_status=old_status,
+            new_status=self.object.status
+        )
+
+        # สร้างการแจ้งเตือน
+        self._create_evaluation_notification(evaluation)
+
+        messages.success(request, 'บันทึกการประเมินสำเร็จ')
+        return redirect('maintenance:maintenance_detail', pk=self.object.pk)
+
+    def _create_evaluation_notification(self, evaluation):
+        maintenance = self.object
+
+        # แจ้งเตือนผู้แจ้งซ่อม
+        send_notification(
+            user_id=maintenance.requestor.id,
+            title=f"งานซ่อมได้รับการประเมินแล้ว",
+            message=f"งานซ่อม {maintenance.title} ได้รับการประเมินจากช่างแล้ว - {dict(RepairEvaluation.EVALUATION_RESULT)[evaluation.result]}",
+            maintenance_request=maintenance
+        )
+
+        # แจ้งเตือนผู้ดูแลระบบ/ผู้จัดการ
+        admins = User.objects.filter(is_staff=True)
+        for admin in admins:
+            if admin.id != evaluation.technician.id:  # ไม่ส่งให้ช่างที่ประเมิน
+                send_notification(
+                    user_id=admin.id,
+                    title=f"มีการประเมินงานซ่อมใหม่",
+                    message=f"งานซ่อม {maintenance.title} ได้รับการประเมินแล้ว - {dict(RepairEvaluation.EVALUATION_RESULT)[evaluation.result]}",
+                    maintenance_request=maintenance
+                )
 
     def _handle_image_upload(self, request):
         if 'images' not in request.FILES:
@@ -290,59 +402,6 @@ def update_status(request, pk):
             return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
-
-
-@require_http_methods(["POST"])
-@user_passes_test(is_staff_check)
-def approve_request(request, pk):
-    try:
-        maintenance = MaintenanceRequest.objects.get(pk=pk)
-        data = json.loads(request.body)
-
-        technician_id = data.get('technician_id')
-        note = data.get('note', '')
-
-        technician = User.objects.get(pk=technician_id)
-
-        old_status = maintenance.status
-
-        maintenance.assigned_technician = technician
-        maintenance.status = 'APPROVED'
-        maintenance.save()
-
-        # Create approval record
-        Approval.objects.create(
-            maintenance_request=maintenance,
-            approved_by=request.user,
-            technician=technician,
-            note=note
-        )
-
-        MaintenanceAssignment.objects.create(
-            request=maintenance,
-            technician=technician,
-            notes=note
-        )
-
-        StatusLog.objects.create(
-            maintenance_request=maintenance,
-            changed_by=request.user,
-            old_status=old_status,
-            new_status=maintenance.status,
-        )
-
-        # Send notification to technician
-        send_notification(
-            user_id=technician.id,
-            title='งานซ่อมใหม่',
-            message=f'คุณได้รับมอบหมายงานซ่อม: {maintenance.title}',
-            maintenance_request=maintenance,
-        )
-
-        return JsonResponse({'success': True})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
-
 
 class ProfileView(LoginRequiredMixin, UpdateView):
     template_name = 'maintenance/profile.html'
@@ -504,3 +563,323 @@ class MaintenanceRequestEditView(LoginRequiredMixin, UserPassesTestMixin, Update
     def form_valid(self, form):
         response = super().form_valid(form)
         return response
+
+
+@login_required
+def evaluate_request(request, pk):
+    maintenance = MaintenanceRequest.objects.get(pk=pk)
+    assignment = maintenance.maintenanceassignment_set.filter(technician=request.user).first()
+
+    # ตรวจสอบว่าผู้ใช้เป็นช่างที่ได้รับมอบหมายหรือไม่
+    if not assignment:
+        messages.error(request, 'คุณไม่ได้รับมอบหมายให้ประเมินงานนี้')
+        return redirect('maintenance:maintenance_detail', pk=maintenance.pk)
+
+    # ตรวจสอบสถานะว่าสามารถประเมินได้หรือไม่
+    if maintenance.status not in ['ASSIGNED', 'EVALUATING'] or hasattr(maintenance, 'evaluation'):
+        messages.error(request, 'ไม่สามารถประเมินงานนี้ได้')
+        return redirect('maintenance:maintenance_detail', pk=maintenance.pk)
+
+    if request.method == 'POST':
+        # ดำเนินการประเมินงาน
+        result = request.POST.get('result')
+        if result not in dict(RepairEvaluation.EVALUATION_RESULT):
+            messages.error(request, 'ผลการประเมินไม่ถูกต้อง')
+            return redirect('maintenance:maintenance_detail', pk=maintenance.pk)
+
+        # สร้างบันทึกการประเมิน
+        evaluation = RepairEvaluation.objects.create(
+            maintenance_request=maintenance,
+            technician=request.user,
+            result=result,
+            notes=request.POST.get('notes', ''),
+            estimated_cost=request.POST.get('estimated_cost') or None,
+            estimated_time=request.POST.get('estimated_time') or None,
+            parts_needed=request.POST.get('parts_needed', '')
+        )
+
+        # อัพโหลดรูปภาพประกอบการประเมิน (ถ้ามี)
+        images = request.FILES.getlist('evaluation_images')
+        for image in images:
+            EvaluationImage.objects.create(
+                evaluation=evaluation,
+                image=image,
+                caption=request.POST.get('image_caption', '')
+            )
+
+        # อัพเดทสถานะตามผลการประเมิน
+        old_status = maintenance.status
+        if result == 'CAN_FIX':
+            maintenance.status = 'EVALUATED'
+        elif result == 'OUTSOURCE':
+            maintenance.status = 'OUTSOURCED'
+        elif result == 'CENTRAL_DEPT':
+            maintenance.status = 'TRANSFERRED'
+        elif result == 'NEED_PARTS':
+            maintenance.status = 'NEED_PARTS'
+
+        maintenance.save()
+
+        # บันทึกประวัติการเปลี่ยนสถานะ
+        StatusLog.objects.create(
+            maintenance_request=maintenance,
+            changed_by=request.user,
+            old_status=old_status,
+            new_status=maintenance.status
+        )
+
+        # สร้างการแจ้งเตือนสำหรับการประเมิน
+        send_notification(
+            user_id=maintenance.requestor.id,
+            title=f"งานซ่อมได้รับการประเมินแล้ว",
+            message=f"งานซ่อม {maintenance.title} ได้รับการประเมินจากช่างแล้ว - {dict(RepairEvaluation.EVALUATION_RESULT)[result]}",
+            maintenance_request=maintenance
+        )
+
+        # แจ้งเตือนผู้ดูแลระบบ/ผู้จัดการเกี่ยวกับผลการประเมิน
+        admins = User.objects.filter(is_staff=True)
+        for admin in admins:
+            send_notification(
+                user_id=admin.id,
+                title=f"มีการประเมินงานซ่อมใหม่",
+                message=f"งานซ่อม {maintenance.title} ได้รับการประเมินแล้ว - {dict(RepairEvaluation.EVALUATION_RESULT)[result]}",
+                maintenance_request=maintenance
+            )
+
+        messages.success(request, 'บันทึกการประเมินสำเร็จ')
+        return redirect('maintenance:maintenance_detail', pk=maintenance.pk)
+
+    # กรณี GET request แสดงฟอร์มประเมิน
+    return render(request, 'maintenance/evaluate.html', {
+        'maintenance': maintenance,
+        'evaluation_results': RepairEvaluation.EVALUATION_RESULT,
+    })
+
+
+@login_required
+@require_POST
+def assign_maintenance_request(request, request_id):
+    """
+    API endpoint for assigning a maintenance request to a technician
+    """
+    # Check if user has permission to assign maintenance requests
+    if not request.user.has_perm('maintenance.can_assign_maintenance'):
+        return JsonResponse({
+            'success': False,
+            'error': 'ไม่มีสิทธิ์ในการมอบหมายงานซ่อม'
+        }, status=403)
+
+    # Get the maintenance request
+    maintenance_request = get_object_or_404(MaintenanceRequest, id=request_id)
+
+    # Check if the request is in a valid state for assignment
+    if maintenance_request.status != 'PENDING':
+        return JsonResponse({
+            'success': False,
+            'error': 'ไม่สามารถมอบหมายงานซ่อมที่ไม่อยู่ในสถานะรอดำเนินการ'
+        }, status=400)
+
+    try:
+        # Parse request data
+        data = json.loads(request.body)
+        technician_id = data.get('technician_id')
+        note = data.get('note', '')
+
+        # Get the technician
+        technician = get_object_or_404(User, id=technician_id)
+
+        # Check if technician has the right role
+        if not technician.groups.filter(name='Technicians').exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'ผู้ใช้ที่เลือกไม่ใช่ช่างซ่อม'
+            }, status=400)
+        old_status = maintenance_request.status
+        # Update the maintenance request status
+        maintenance_request.status = 'ASSIGNED'
+        maintenance_request.save()
+
+        # Create assignment
+        assignment = MaintenanceAssignment.objects.create(
+            maintenance_request=maintenance_request,
+            technician=technician,
+            assigned_by=request.user,
+            note=note
+        )
+
+        StatusLog.objects.create(
+            maintenance_request=maintenance_request,
+            changed_by=request.user,
+            old_status=old_status,
+            new_status=maintenance_request.status,
+        )
+        # Send notification to technician
+        send_notification(
+            user_id=technician.id,
+            title='มอบหมายงานซ่อม',
+            message=f'คุณได้รับมอบหมายงานซ่อม: {maintenance_request.title}',
+            maintenance_request=maintenance_request,
+        )
+
+        # Return success response
+        return JsonResponse({
+            'success': True,
+            'message': 'มอบหมายงานซ่อมสำเร็จ',
+            'assignment_id': assignment.id
+        })
+
+    except Exception as e:
+        # Log the error
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error assigning maintenance request: {str(e)}")
+
+        # Return error response
+        return JsonResponse({
+            'success': False,
+            'error': f'เกิดข้อผิดพลาด: {str(e)}'
+        }, status=500)
+
+@login_required
+@require_GET
+def get_maintenance_evaluation(request, request_id):
+    """API endpoint to get evaluation details for a maintenance request"""
+    maintenance_request = get_object_or_404(MaintenanceRequest, id=request_id)
+
+    # Get evaluation if it exists
+    evaluation = maintenance_request.evaluation if hasattr(maintenance_request, 'evaluation') else None
+
+    if not evaluation:
+        return JsonResponse({
+            'success': False,
+            'error': 'ยังไม่มีการประเมินสำหรับงานซ่อมนี้'
+        }, status=404)
+
+    # Return evaluation details
+    return JsonResponse({
+        'success': True,
+        'estimated_cost': evaluation.estimated_cost,
+        'estimated_hours': evaluation.estimated_time,
+        'parts_needed': evaluation.parts_needed,
+        'result': evaluation.result,
+        'result_display': evaluation.get_result_display(),
+    })
+
+@login_required
+@permission_required('maintenance.can_approve_maintenance')
+@require_POST
+def approve_repair(request, request_id):
+    """API endpoint for approving a repair after evaluation"""
+    maintenance_request = get_object_or_404(MaintenanceRequest, id=request_id)
+
+    # Validate request is in the correct state
+    if maintenance_request.status != 'EVALUATED':
+        return JsonResponse({
+            'success': False,
+            'error': 'สามารถอนุมัติได้เฉพาะงานซ่อมที่ประเมินแล้วเท่านั้น'
+        }, status=400)
+
+    try:
+        data = json.loads(request.body)
+        approved_budget = data.get('approved_budget', 0)
+        note = data.get('note', '')
+
+        # Update the evaluation with approval details
+        evaluation = maintenance_request.evaluation
+        evaluation.approved_budget = approved_budget
+        evaluation.approval_notes = note
+        evaluation.approved_at = timezone.now()
+        evaluation.approved_by = request.user
+        evaluation.save()
+
+        assignment = maintenance_request.maintenanceassignment_set.first()
+
+        old_status = maintenance_request.status
+
+        # Update request status
+        maintenance_request.status = 'APPROVED'
+        maintenance_request.save()
+
+        Approval.objects.create(
+            maintenance_request=maintenance_request,
+            approved_by=request.user,
+            technician=assignment.technician,
+            note=note
+        )
+
+        StatusLog.objects.create(
+            maintenance_request=maintenance_request,
+            changed_by=request.user,
+            old_status=old_status,
+            new_status=maintenance_request.status,
+        )
+
+        # Send notification to technician
+        send_notification(
+            user_id=assignment.technician.id,
+            title='อนุมัติงาน',
+            message=f'งานซ่อม {maintenance_request.title} ได้รับการอนุมัติแล้ว สามารถเริ่มงานได้เลย',
+            maintenance_request=maintenance_request,
+        )
+
+        return JsonResponse({
+            'success': True
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'รูปแบบข้อมูลไม่ถูกต้อง'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@permission_required('maintenance.can_approve_maintenance')
+@require_POST
+def approve_parts(request, request_id):
+    """API endpoint for approving parts purchase for a maintenance request"""
+    maintenance_request = get_object_or_404(MaintenanceRequest, id=request_id)
+
+    # Validate request is in the correct state
+    if maintenance_request.status != 'NEED_PARTS':
+        return JsonResponse({
+            'success': False,
+            'error': 'สามารถอนุมัติการซื้ออะไหล่ได้เฉพาะงานที่รอจัดซื้ออะไหล่เท่านั้น'
+        }, status=400)
+
+    try:
+        data = json.loads(request.body)
+        approved_budget = data.get('approved_budget', 0)
+        note = data.get('note', '')
+
+        # Update the evaluation with approval details
+        evaluation = maintenance_request.evaluation
+        evaluation.approved_budget = approved_budget
+        evaluation.approval_notes = note
+        evaluation.approved_at = timezone.now()
+        evaluation.approved_by = request.user
+        evaluation.save()
+
+        # Update request status to indicate parts are being ordered
+        maintenance_request.status = 'APPROVED'
+        maintenance_request.save()
+
+        return JsonResponse({
+            'success': True
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'รูปแบบข้อมูลไม่ถูกต้อง'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
