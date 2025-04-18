@@ -185,8 +185,6 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
             return self._handle_comment(request)
         elif _action == 'update_status':
             return self._handle_status_update(request)
-        elif _action == 'approve_request':
-            return self._handle_approval(request)
         elif _action == 'evaluate_request':
             return self._handle_evaluation(request)
 
@@ -865,9 +863,35 @@ def approve_parts(request, request_id):
         evaluation.approved_by = request.user
         evaluation.save()
 
+        assignment = maintenance_request.maintenanceassignment_set.first()
+
+        old_status = maintenance_request.status
+
         # Update request status to indicate parts are being ordered
         maintenance_request.status = 'APPROVED'
         maintenance_request.save()
+
+        Approval.objects.create(
+            maintenance_request=maintenance_request,
+            approved_by=request.user,
+            technician=assignment.technician,
+            note=note
+        )
+
+        StatusLog.objects.create(
+            maintenance_request=maintenance_request,
+            changed_by=request.user,
+            old_status=old_status,
+            new_status=maintenance_request.status,
+        )
+
+        # Send notification to technician
+        send_notification(
+            user_id=assignment.technician.id,
+            title='อนุมัติจัดซื้อ',
+            message=f'งานซ่อม {maintenance_request.title} ได้รับการอนุมัติการจัดซื้ออะไหล่แล้ว สามารถเริ่มงานได้เลย',
+            maintenance_request=maintenance_request,
+        )
 
         return JsonResponse({
             'success': True
