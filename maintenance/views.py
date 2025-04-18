@@ -410,6 +410,9 @@ class ReportsView(LoginRequiredMixin, TemplateView):
             monthly_data.append(month_stats)
 
         context['monthly_stats_json'] = json.dumps(monthly_data)
+        context['requests_by_category'] = requests.values('category__name') \
+            .annotate(count=Count('id')) \
+            .order_by('-count')
         return context
 
 
