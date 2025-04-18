@@ -17,7 +17,7 @@ from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 
-from .forms import MaintenanceRequestForm, CommentForm
+from .forms import MaintenanceRequestForm, CommentForm, UserForm, UserProfileForm
 from .notifications import send_notification
 from .serializers import *
 
@@ -336,20 +336,27 @@ def approve_request(request, pk):
 
 class ProfileView(LoginRequiredMixin, UpdateView):
     template_name = 'maintenance/profile.html'
-    model = User
-    fields = ['first_name', 'last_name', 'email']
+    form_class = UserForm
+    success_url = reverse_lazy('maintenance:profile')
 
-    def get_object(self):
+    def get_object(self,  **kwargs):
         return self.request.user
 
+    def form_valid(self, form):
+        messages.success(self.request, 'โปรไฟล์ถูกอัพเดทเรียบร้อยแล้ว')
+        return super().form_valid(form)
 
 class SettingsView(LoginRequiredMixin, UpdateView):
     template_name = 'maintenance/settings.html'
-    model = UserProfile
-    fields = ['line_token', 'phone_number', 'notification_preferences']
+    form_class = UserProfileForm
+    success_url = reverse_lazy('maintenance:settings')
 
-    def get_object(self):
+    def get_object(self,  **kwargs):
         return self.request.user.userprofile
+
+    def form_valid(self, form):
+        messages.success(self.request, 'การตั้งค่าถูกบันทึกเรียบร้อยแล้ว')
+        return super().form_valid(form)
 
 
 class ReportsView(LoginRequiredMixin, TemplateView):

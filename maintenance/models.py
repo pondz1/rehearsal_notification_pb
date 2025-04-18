@@ -190,12 +190,23 @@ class Notification(models.Model):
                            kwargs={'pk': self.maintenance_request.pk})
         return '#'
 
+
 class UserProfile(models.Model):
+    NOTIFICATION_CHOICES = [
+        ('ALL', 'รับการแจ้งเตือนทั้งหมด'),
+        ('EMAIL', 'อีเมลเท่านั้น'),
+        ('LINE', 'Line เท่านั้น'),
+        ('NONE', 'ไม่รับการแจ้งเตือน')
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     line_token = models.CharField(max_length=200, blank=True, null=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
-    department = models.CharField(max_length=100, blank=True, null=True)
-    position = models.CharField(max_length=100, blank=True, null=True)
+    notification_preferences = models.CharField(
+        max_length=10,
+        choices=NOTIFICATION_CHOICES,
+        default='ALL'
+    )
 
     def __str__(self):
-        return f"{self.user.get_full_name()}'s Profile"
+        return f"{self.user.username}'s Profile"

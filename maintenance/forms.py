@@ -1,5 +1,8 @@
 from django import forms
-from .models import MaintenanceRequest, Comment
+from django.contrib.auth.models import User
+
+from .models import MaintenanceRequest, Comment, UserProfile
+
 
 class MaintenanceRequestForm(forms.ModelForm):
     class Meta:
@@ -37,4 +40,24 @@ class CommentForm(forms.ModelForm):
                 'class': 'w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500',
                 'placeholder': 'เพิ่มความคิดเห็น...'
             }),
+        }
+
+class UserProfileForm(forms.ModelForm):
+    class Meta:
+        model = UserProfile
+        fields = ['line_token', 'phone_number', 'notification_preferences']
+        widgets = {
+            'line_token': forms.TextInput(attrs={'class': 'form-input rounded-lg'}),
+            'phone_number': forms.TextInput(attrs={'class': 'form-input rounded-lg'}),
+            'notification_preferences': forms.Select(attrs={'class': 'form-select rounded-lg'})
+        }
+
+class UserForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'email']
+        widgets = {
+            'first_name': forms.TextInput(attrs={'class': 'form-input rounded-lg'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-input rounded-lg'}),
+            'email': forms.EmailInput(attrs={'class': 'form-input rounded-lg'})
         }

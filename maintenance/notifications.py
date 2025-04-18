@@ -2,9 +2,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.db.backends.utils import logger
 from django.template.loader import render_to_string
-
 import requests
-
 
 def send_line_notify(token, message):
     """
@@ -16,30 +14,58 @@ def send_line_notify(token, message):
 
     try:
         response = requests.post(url, headers=headers, data=payload)
-        return response.status_code == 200
-    except Exception as e:
+        response.raise_for_status()  # เพิ่มการตรวจสอบ HTTP errors
+        return True
+    except requests.RequestException as e:
         logger.error(f"LINE Notify error: {str(e)}")
         return False
 
-
-def send_notification(user_id, title, message, maintenance_request):
+def send_notification(user_id, title, message, maintenance_request=None):
     """
-    ส่งการแจ้งเตือนผ่านหลายช่องทาง: Email, LINE Notify, และ In-app notification
+    ส่งการแจ้งเตือนตามการตั้งค่าของผู้ใช้
     """
     from .models import User, Notification  # Import here to avoid circular import
 
-    user = User.objects.get(id=user_id)
+    try:
+        user = User.objects.select_related('userprofile').get(id=user_id)
+        notification_preference = user.userprofile.notification_preferences
 
-    # บันทึก In-app notification
-    Notification.objects.create(
-        user=user,
-        title=title,
-        message=message,
-        maintenance_request=maintenance_request,
-    )
+        # บันทึก In-app notification เสมอ
+        notification = Notification.objects.create(
+            user=user,
+            title=title,
+            message=message,
+            maintenance_request=maintenance_request,
+        )
 
-    # ส่ง Email
-    if user.email:
+        # ตรวจสอบการตั้งค่าการแจ้งเตือน
+        if notification_preference == 'NONE':
+            return True
+
+        success = True
+
+        # ส่งอีเมลถ้าตั้งค่าไว้
+        if notification_preference in ['ALL', 'EMAIL'] and user.email:
+            success &= send_email_notification(user, title, message)
+
+        # ส่ง LINE ถ้าตั้งค่าไว้
+        if notification_preference in ['ALL', 'LINE'] and user.userprofile.line_token:
+            success &= send_line_notify(user.userprofile.line_token, f'{title}\n{message}')
+
+        return success
+
+    except User.DoesNotExist:
+        logger.error(f"User {user_id} not found")
+        return False
+    except Exception as e:
+        logger.error(f"Error sending notification: {str(e)}")
+        return False
+
+def send_email_notification(user, title, message):
+    """
+    ส่งการแจ้งเตือนทางอีเมล
+    """
+    try:
         context = {
             'user': user,
             'title': title,
@@ -54,9 +80,10 @@ def send_notification(user_id, title, message, maintenance_request):
             message=email_text,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
-            html_message=email_html
+            html_message=email_html,
+            fail_silently=False
         )
-
-    # ส่ง LINE Notify (ถ้ามีการตั้งค่า LINE Token)
-    if hasattr(user, 'line_token') and user.line_token:
-        send_line_notify(user.line_token, f'{title}\n{message}')
+        return True
+    except Exception as e:
+        logger.error(f"Email sending error: {str(e)}")
+        return False

@@ -71,6 +71,10 @@
                                class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                                 รายงานสถิติ
                             </a>
+                            <a href="{% url 'admin:index' %}"
+                               class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                Site administration
+                            </a>
                         {% endif %}
                     </div>
                 </div>
@@ -179,6 +183,10 @@
                 <a href="{% url 'maintenance:reports' %}"
                    class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
                     รายงานสถิติ
+                </a>
+                <a href="{% url 'admin:index' %}"
+                   class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                    Site administration
                 </a>
             {% endif %}
         </div>
