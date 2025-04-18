@@ -6,6 +6,7 @@ urlpatterns = [
     path('', MaintenanceListView.as_view(), name='maintenance_list'),
     path('create/', MaintenanceCreateView.as_view(), name='maintenance_create'),
     path('detail/<int:pk>/', MaintenanceDetailView.as_view(), name='maintenance_detail'),
+    path('<int:pk>/edit/', MaintenanceRequestEditView.as_view(), name='maintenance_edit'),
     path('manage/', MaintenanceManageView.as_view(), name='maintenance_manage'),
     path('api/maintenance/<int:pk>/status/', update_status, name='update_status'),
     path('api/maintenance/<int:pk>/approve/', approve_request, name='approve_request'),

@@ -50,7 +50,7 @@ class MaintenanceRequest(models.Model):
 
     @property
     def request_images(self):
-        return self.maintenanceimage_set.all()
+        return self.images.all()
 
     permissions = [
         ("change_status", "Can change maintenance status"),
@@ -132,7 +132,7 @@ class Comment(models.Model):
 
 
 class StatusLog(models.Model):
-    maintenance_request = models.ForeignKey(MaintenanceRequest, on_delete=models.CASCADE)
+    maintenance_request = models.ForeignKey(MaintenanceRequest, on_delete=models.CASCADE, )
     changed_by = models.ForeignKey(User, on_delete=models.CASCADE)
     old_status = models.CharField(max_length=20, choices=MaintenanceRequest.STATUS_CHOICES)
     new_status = models.CharField(max_length=20, choices=MaintenanceRequest.STATUS_CHOICES)

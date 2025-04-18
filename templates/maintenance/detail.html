@@ -48,11 +48,26 @@
                     </form>
                 {% endif %}
 
-                {% if can_edit %}
-                    {#            <a href="{% url 'maintenance:edit' maintenance.id %}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">#}
-                    {#                แก้ไข#}
-                    {#            </a>#}
+                {% if is_technician and maintenance.status == 'APPROVED' %}
+                    <form method="post" class="inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="update_status">
+                        <input type="hidden" name="status" value="REJECTED">
+                        <button type="submit"
+                                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700">
+                            ปฏิเสธงาน
+                        </button>
+                    </form>
                 {% endif %}
+
+
+                {% if can_edit %}
+                    <a href="{% url 'maintenance:maintenance_edit' maintenance.id %}"
+                       class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                        แก้ไข
+                    </a>
+                {% endif %}
+
             </div>
         </div>
 

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test, login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.shortcuts import redirect
@@ -135,12 +135,13 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
 
         # ดึงข้อมูลการมอบหมายงานล่าสุด
         assignment = maintenance.maintenanceassignment_set.first()
+        status_allows_edit = maintenance.status not in ['COMPLETED', 'REJECTED']
 
         context.update({
             'comment_form': CommentForm(),
             'is_requestor': maintenance.requestor == self.request.user,
             'is_technician': assignment and assignment.technician == self.request.user,
-            'can_edit': self.request.user.has_perm('maintenance.change_maintenancerequest'),
+            'can_edit': (self.request.user.is_staff or maintenance.requestor == self.request.user) and status_allows_edit,
             'can_approve': self.request.user.has_perm('maintenance.approve_maintenancerequest'),
             'before_images': maintenance.images.filter(is_before_image=True),
             'after_images': maintenance.images.filter(is_before_image=False),
@@ -301,7 +302,8 @@ def approve_request(request, pk):
         note = data.get('note', '')
 
         technician = User.objects.get(pk=technician_id)
-        print(technician,technician_id)
+
+        old_status = maintenance.status
 
         maintenance.assigned_technician = technician
         maintenance.status = 'APPROVED'
@@ -319,6 +321,13 @@ def approve_request(request, pk):
             request=maintenance,
             technician=technician,
             notes=note
+        )
+
+        StatusLog.objects.create(
+            maintenance_request=maintenance,
+            changed_by=request.user,
+            old_status=old_status,
+            new_status=maintenance.status,
         )
 
         # Send notification to technician
@@ -339,19 +348,20 @@ class ProfileView(LoginRequiredMixin, UpdateView):
     form_class = UserForm
     success_url = reverse_lazy('maintenance:profile')
 
-    def get_object(self,  **kwargs):
+    def get_object(self, **kwargs):
         return self.request.user
 
     def form_valid(self, form):
         messages.success(self.request, 'โปรไฟล์ถูกอัพเดทเรียบร้อยแล้ว')
         return super().form_valid(form)
 
+
 class SettingsView(LoginRequiredMixin, UpdateView):
     template_name = 'maintenance/settings.html'
     form_class = UserProfileForm
     success_url = reverse_lazy('maintenance:settings')
 
-    def get_object(self,  **kwargs):
+    def get_object(self, **kwargs):
         return self.request.user.userprofile
 
     def form_valid(self, form):
@@ -463,8 +473,30 @@ def get_technicians(request):
     return JsonResponse(data, safe=False)
 
 
-# @login_required
-# def get_departments(request):
-#     departments = Department.objects.all()
-#     data = [{'id': dept.id, 'name': dept.name} for dept in departments]
-#     return JsonResponse(data, safe=False)
+class MaintenanceRequestEditView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = MaintenanceRequest
+    template_name = 'maintenance/edit.html'
+    fields = ['title', 'description', 'category', 'location', 'priority']
+
+    def test_func(self):
+        maintenance = self.get_object()
+        # อนุญาตให้แก้ไขได้เฉพาะผู้แจ้งหรือผู้ดูแลระบบ
+        # และสถานะต้องยังไม่เป็น COMPLETED หรือ REJECTED
+        can_edit = (self.request.user == maintenance.requestor or
+                    self.request.user.is_staff)
+        status_allows_edit = maintenance.status not in ['COMPLETED', 'REJECTED']
+        return can_edit and status_allows_edit
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields['description'].widget.attrs.update({
+            'rows': 4
+        })
+        return form
+
+    def get_success_url(self):
+        return reverse_lazy('maintenance:maintenance_detail', kwargs={'pk': self.object.pk})
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        return response
