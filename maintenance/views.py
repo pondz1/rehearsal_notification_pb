@@ -136,17 +136,19 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
         # ดึงข้อมูลการมอบหมายงานล่าสุด
         assignment = maintenance.maintenanceassignment_set.first()
         status_allows_edit = maintenance.status not in ['COMPLETED', 'REJECTED']
+        status_allows_approve = maintenance.status not in ['PENDING']
 
         context.update({
             'comment_form': CommentForm(),
             'is_requestor': maintenance.requestor == self.request.user,
             'is_technician': assignment and assignment.technician == self.request.user,
             'can_edit': (self.request.user.is_staff or maintenance.requestor == self.request.user) and status_allows_edit,
-            'can_approve': self.request.user.has_perm('maintenance.approve_maintenancerequest'),
+            'can_approve': self.request.user.has_perm('maintenance.approve_maintenancerequest') and status_allows_approve,
             'before_images': maintenance.images.filter(is_before_image=True),
             'after_images': maintenance.images.filter(is_before_image=False),
             'current_assignment': assignment,
             'status_logs': maintenance.statuslog_set.all().order_by('-changed_at'),
+            'technicians': User.objects.filter(groups__name='Technicians'),
         })
 
         return context
@@ -262,7 +264,6 @@ class MaintenanceManageView(ListView):
         context = super().get_context_data(**kwargs)
         context['status_choices'] = MaintenanceRequest.STATUS_CHOICES
         context['technicians'] = User.objects.filter(groups__name='Technicians')
-        print(context['technicians'])
         return context
 
 
