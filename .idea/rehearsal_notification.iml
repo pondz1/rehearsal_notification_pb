@@ -22,6 +22,7 @@
     <orderEntry type="library" name="htmx.org" level="application" />
     <orderEntry type="library" name="@tailwindcss" level="application" />
     <orderEntry type="library" name="alpinejs" level="application" />
+    <orderEntry type="library" name="chart.js" level="application" />
   </component>
   <component name="TemplatesService">
     <option name="TEMPLATE_CONFIGURATION" value="Django" />

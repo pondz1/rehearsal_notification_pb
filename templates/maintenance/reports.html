@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-2xl font-bold mb-8">รายงานสถิติการแจ้งซ่อม</h1>
+
+        <!-- Overall Statistics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-gray-500 text-sm">ทั้งหมด</h3>
+                <p class="text-3xl font-bold">{{ total_requests }}</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-gray-500 text-sm">รอดำเนินการ</h3>
+                <p class="text-3xl font-bold text-yellow-500">{{ pending_requests }}</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-gray-500 text-sm">อนุมัติแล้ว</h3>
+                <p class="text-3xl font-bold text-blue-500">{{ approved_requests }}</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-gray-500 text-sm">กำลังดำเนินการ</h3>
+                <p class="text-3xl font-bold text-purple-500">{{ in_progress_requests }}</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-gray-500 text-sm">เสร็จสิ้น</h3>
+                <p class="text-3xl font-bold text-green-500">{{ completed_requests }}</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-gray-500 text-sm">ปฏิเสธ</h3>
+                <p class="text-3xl font-bold text-red-500">{{ rejected_requests }}</p>
+            </div>
+        </div>
+
+        <!-- Category Statistics -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 class="text-xl font-bold mb-4">สถิติตามประเภทการแจ้งซ่อม</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead>
+                    <tr>
+                        <th class="px-6 py-3 bg-gray-50 text-left">ประเภท</th>
+                        <th class="px-6 py-3 bg-gray-50 text-right">จำนวน</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for category in requests_by_category %}
+                        <tr>
+                            <td class="px-6 py-4">{{ category.category__name }}</td>
+                            <td class="px-6 py-4 text-right">{{ category.count }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Monthly Statistics Chart -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold mb-4">สถิติรายเดือน</h2>
+            <canvas id="monthlyChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const monthlyData = JSON.parse('{{ monthly_stats_json|safe }}');
+        const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+            'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+        const chartData = {
+            labels: monthlyData.map(data => months[data.created_at__month - 1]),
+            datasets: [
+                {
+                    label: 'รอดำเนินการ',
+                    data: monthlyData.map(data => data.pending),
+                    backgroundColor: '#FCD34D',
+                    stack: 'Stack 0',
+                },
+                {
+                    label: 'อนุมัติแล้ว',
+                    data: monthlyData.map(data => data.approved),
+                    backgroundColor: '#60A5FA',
+                    stack: 'Stack 0',
+                },
+                {
+                    label: 'กำลังดำเนินการ',
+                    data: monthlyData.map(data => data.in_progress),
+                    backgroundColor: '#A78BFA',
+                    stack: 'Stack 0',
+                },
+                {
+                    label: 'เสร็จสิ้น',
+                    data: monthlyData.map(data => data.completed),
+                    backgroundColor: '#34D399',
+                    stack: 'Stack 0',
+                },
+                {
+                    label: 'ปฏิเสธ',
+                    data: monthlyData.map(data => data.rejected),
+                    backgroundColor: '#EF4444',
+                    stack: 'Stack 0',
+                }
+            ]
+        };
+
+        new Chart(document.getElementById('monthlyChart').getContext('2d'), {
+            type: 'bar',
+            data: chartData,
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'สถิติการแจ้งซ่อมรายเดือน'
+                    },
+                    legend: {
+                        position: 'bottom'
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+
+{% endblock %}

@@ -1,9 +1,10 @@
 import json
+from datetime import datetime, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test, login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
@@ -356,7 +357,41 @@ class ReportsView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Add reports data
+
+        today = datetime.now()
+        last_30_days = today - timedelta(days=30)
+        requests = MaintenanceRequest.objects.all()
+
+        # อัพเดตการ query ให้ตรงกับ STATUS_CHOICES
+        context.update({
+            'total_requests': requests.count(),
+            'pending_requests': requests.filter(status='PENDING').count(),
+            'approved_requests': requests.filter(status='APPROVED').count(),
+            'in_progress_requests': requests.filter(status='IN_PROGRESS').count(),
+            'completed_requests': requests.filter(status='COMPLETED').count(),
+            'rejected_requests': requests.filter(status='REJECTED').count(),
+        })
+
+        # ปรับปรุงการ query monthly data
+        monthly_data = []
+        for month in range(1, 13):
+            month_requests = requests.filter(
+                created_at__year=today.year,
+                created_at__month=month
+            )
+
+            month_stats = {
+                'created_at__month': month,
+                'total': month_requests.count(),
+                'pending': month_requests.filter(status='PENDING').count(),
+                'approved': month_requests.filter(status='APPROVED').count(),
+                'in_progress': month_requests.filter(status='IN_PROGRESS').count(),
+                'completed': month_requests.filter(status='COMPLETED').count(),
+                'rejected': month_requests.filter(status='REJECTED').count()
+            }
+            monthly_data.append(month_stats)
+
+        context['monthly_stats_json'] = json.dumps(monthly_data)
         return context
 
 
