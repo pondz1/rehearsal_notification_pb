@@ -155,15 +155,16 @@
         <!-- Add this in the details section of the maintenance request -->
         {% if has_evaluation %}
             <div class="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
-                <div class="px-4 py-5 sm:px-6">
+                <div class="px-4 py-5 border-b border-gray-200 sm:px-6 bg-indigo-50">
                     <h3 class="text-lg leading-6 font-medium text-gray-900">ผลการประเมินงานซ่อม</h3>
+                    <p class="mt-1 max-w-2xl text-sm text-gray-500">ข้อมูลการประเมินโดยช่างเทคนิค</p>
                 </div>
                 <div class="border-t border-gray-200">
                     <dl>
                         <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                             <dt class="text-sm font-medium text-gray-500">ประเมินโดย</dt>
                             <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                                {{ evaluation.technician.get_full_name }}
+                                {{ evaluation.technician.get_full_name|default:evaluation.technician.username }}
                             </dd>
                         </div>
 
@@ -206,6 +207,15 @@
                             </div>
                         {% endif %}
 
+                        {% if evaluation.approved_budget %}
+                            <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                                <dt class="text-sm font-medium text-gray-500">ค่าใช้จ่ายที่อนุมัติ</dt>
+                                <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                    {{ evaluation.approved_budget|floatformat:2 }} บาท
+                                </dd>
+                            </div>
+                        {% endif %}
+
                         {% if evaluation.estimated_time %}
                             <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                                 <dt class="text-sm font-medium text-gray-500">เวลาที่ใช้โดยประมาณ</dt>
@@ -215,24 +225,26 @@
                             </div>
                         {% endif %}
 
-                        {% if parts_list %}
+                        {% if evaluation.parts_needed %}
                             <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                                 <dt class="text-sm font-medium text-gray-500">อะไหล่/วัสดุที่ต้องการ</dt>
                                 <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                                     <ul class="border border-gray-200 rounded-md divide-y divide-gray-200">
-                                        {% for part in parts_list %}
-                                            <li class="pl-3 pr-4 py-3 flex items-center justify-start text-sm">
-                                                <svg class="flex-shrink-0 h-5 w-5 text-gray-400"
-                                                     xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
-                                                     fill="currentColor" aria-hidden="true">
-                                                    <path fill-rule="evenodd" d="M10 12a2 2 0 100-4 2 2 0 000 4z"
-                                                          clip-rule="evenodd"></path>
-                                                    <path fill-rule="evenodd"
-                                                          d="M3.536 10a6.464 6.464 0 1112.928 0 6.464 6.464 0 01-12.928 0zM10 18a8 8 0 100-16 8 8 0 000 16z"
-                                                          clip-rule="evenodd"></path>
-                                                </svg>
-                                                <span class="ml-2 flex-1 w-0 truncate">{{ part }}</span>
-                                            </li>
+                                        {% for part in evaluation.parts_needed.splitlines %}
+                                            {% if part %}
+                                                <li class="pl-3 pr-4 py-3 flex items-center justify-start text-sm">
+                                                    <svg class="flex-shrink-0 h-5 w-5 text-indigo-400"
+                                                         xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                                                         fill="currentColor" aria-hidden="true">
+                                                        <path fill-rule="evenodd" d="M10 12a2 2 0 100-4 2 2 0 000 4z"
+                                                              clip-rule="evenodd"></path>
+                                                        <path fill-rule="evenodd"
+                                                              d="M3.536 10a6.464 6.464 0 1112.928 0 6.464 6.464 0 01-12.928 0zM10 18a8 8 0 100-16 8 8 0 000 16z"
+                                                              clip-rule="evenodd"></path>
+                                                    </svg>
+                                                    <span class="ml-2 flex-1 w-0 truncate">{{ part }}</span>
+                                                </li>
+                                            {% endif %}
                                         {% endfor %}
                                     </ul>
                                 </dd>
@@ -246,9 +258,9 @@
                                     <div class="grid grid-cols-2 gap-4 mt-2">
                                         {% for img in evaluation.images.all %}
                                             <div class="relative">
-                                                <a href="{{ img.image.url }}" target="_blank">
+                                                <a href="{{ img.image.url }}" target="_blank" class="block">
                                                     <img src="{{ img.image.url }}" alt="{{ img.caption }}"
-                                                         class="h-40 w-full object-cover rounded-lg">
+                                                         class="h-40 w-full object-cover rounded-lg shadow hover:shadow-md transition-shadow duration-200">
                                                 </a>
                                                 {% if img.caption %}
                                                     <div class="mt-1 text-xs text-gray-500">{{ img.caption }}</div>
@@ -264,16 +276,39 @@
             </div>
         {% elif can_evaluate %}
             <div class="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
-                <div class="px-4 py-5 sm:px-6">
+                <div class="px-4 py-5 border-b border-gray-200 sm:px-6 bg-indigo-50">
                     <h3 class="text-lg leading-6 font-medium text-gray-900">การประเมินงานซ่อม</h3>
+                    <p class="mt-1 max-w-2xl text-sm text-gray-500">ข้อมูลสำหรับประเมินความเสียหายและความต้องการซ่อม</p>
                 </div>
                 <div class="border-t border-gray-200 px-4 py-5">
-                    <p class="text-sm text-gray-700 mb-4">คุณได้รับมอบหมายให้ดูแลงานซ่อมนี้
-                        กรุณาประเมินงานก่อนดำเนินการซ่อม</p>
-                    <a href="{% url 'maintenance:evaluate_request' pk=maintenance.pk %}"
-                       class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
-                        ประเมินงานซ่อม
-                    </a>
+                    <div class="rounded-md bg-indigo-50 p-4 mb-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-indigo-400" xmlns="http://www.w3.org/2000/svg"
+                                     viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd"
+                                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                          clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div class="ml-3 flex-1 md:flex md:justify-between">
+                                <p class="text-sm text-indigo-700">คุณได้รับมอบหมายให้ดูแลงานซ่อมนี้
+                                    กรุณาประเมินงานก่อนดำเนินการซ่อม</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-center">
+                        <a href="{% url 'maintenance:evaluate_request' pk=maintenance.pk %}"
+                           class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                                 fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd"
+                                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                      clip-rule="evenodd"></path>
+                            </svg>
+                            ประเมินงานซ่อม
+                        </a>
+                    </div>
                 </div>
             </div>
         {% endif %}

@@ -52,17 +52,6 @@ class MaintenanceRequest(models.Model):
     scheduled_date = models.DateTimeField(null=True, blank=True)
     completion_date = models.DateTimeField(null=True, blank=True)
 
-    # Add approval fields
-    approved_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='approved_maintenance_requests'
-    )
-    approved_at = models.DateTimeField(null=True, blank=True)
-    approval_note = models.TextField(blank=True)
-
     def __str__(self):
         return f"{self.title} - {self.status}"
 
@@ -254,6 +243,18 @@ class RepairEvaluation(models.Model):
     estimated_time = models.IntegerField(help_text="Estimated time in hours", null=True, blank=True)
     parts_needed = models.TextField(blank=True, help_text="List of parts needed for repair")
     evaluated_at = models.DateTimeField(auto_now_add=True)
+
+    # Add approval fields
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_maintenance_requests'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approval_note = models.TextField(blank=True)
+    approved_budget = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
         return f"Evaluation for {self.maintenance_request.title}"
