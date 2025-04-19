@@ -20,24 +20,24 @@ class MaintenanceCategory(models.Model):
 class MaintenanceRequest(models.Model):
     # Add to MaintenanceRequest.STATUS_CHOICES
     STATUS_CHOICES = [
-        ('PENDING', 'Pending'),
-        ('ASSIGNED', 'Assigned'),  # When technician is assigned
-        ('EVALUATING', 'Evaluating'),  # When technician is evaluating
-        ('EVALUATED', 'Evaluated'),  # After evaluation, before approval for repair
-        ('APPROVED', 'Approved'),  # Approved to proceed with repair
-        ('IN_PROGRESS', 'In Progress'),
-        ('COMPLETED', 'Completed'),
-        ('OUTSOURCED', 'Outsourced'),  # Requires external contractor
-        ('TRANSFERRED', 'Transferred to Central'),  # Sent to central department
-        ('NEED_PARTS', 'Waiting for Parts'),  # Needs parts before repair
-        ('REJECTED', 'Rejected')
+        ('PENDING', 'รอดำเนินการ'),
+        ('ASSIGNED', 'มอบหมายแล้ว'),  # เมื่อช่างเทคนิคได้รับมอบหมาย
+        ('EVALUATING', 'กำลังประเมิน'),  # เมื่อช่างเทคนิคกำลังประเมิน
+        ('EVALUATED', 'ประเมินแล้ว'),  # หลังจากประเมิน ก่อนอนุมัติการซ่อม
+        ('APPROVED', 'อนุมัติแล้ว'),  # อนุมัติให้ดำเนินการซ่อม
+        ('IN_PROGRESS', 'กำลังดำเนินการ'),
+        ('COMPLETED', 'เสร็จสมบูรณ์'),
+        ('OUTSOURCED', 'จ้างภายนอก'),  # ต้องการผู้รับเหมาภายนอก
+        ('TRANSFERRED', 'ส่งต่อไปส่วนกลาง'),  # ส่งไปยังแผนกส่วนกลาง
+        ('NEED_PARTS', 'รออะไหล่'),  # ต้องการอะไหล่ก่อนการซ่อม
+        ('REJECTED', 'ปฏิเสธ')
     ]
 
     PRIORITY_CHOICES = [
-        ('LOW', 'Low'),
-        ('MEDIUM', 'Medium'),
-        ('HIGH', 'High'),
-        ('URGENT', 'Urgent')
+        ('LOW', 'ต่ำ'),
+        ('MEDIUM', 'ปานกลาง'),
+        ('HIGH', 'สูง'),
+        ('URGENT', 'เร่งด่วน')
     ]
 
     title = models.CharField(max_length=200)
