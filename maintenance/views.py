@@ -372,11 +372,26 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
 def is_staff_check(user):
     return user.is_staff
 
+def is_executives_check(user):
+    return user.groups.filter(name='Executives').exists
+
 
 @method_decorator(user_passes_test(is_staff_check), name='dispatch')
 class MaintenanceManageView(ListView):
     model = MaintenanceRequest
     template_name = 'maintenance/manage.html'
+    context_object_name = 'maintenance_requests'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['status_choices'] = MaintenanceRequest.STATUS_CHOICES
+        context['technicians'] = User.objects.filter(groups__name='Technicians')
+        return context
+
+@method_decorator(user_passes_test(is_executives_check), name='dispatch')
+class MaintenanceExecutivesManageView(ListView):
+    model = MaintenanceRequest
+    template_name = 'maintenance/manage_executives.html'
     context_object_name = 'maintenance_requests'
 
     def get_context_data(self, **kwargs):
@@ -927,3 +942,17 @@ def approve_parts(request, request_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+def home(request):
+    context = {}
+
+    if request.user.is_authenticated:
+        # ดึงคำขอล่าสุด 5 รายการสำหรับผู้ใช้ที่ล็อกอินแล้ว
+        recent_requests = MaintenanceRequest.objects.filter(
+            requestor=request.user
+        ).order_by('-created_at')[:5]
+
+        context['recent_requests'] = recent_requests
+
+    return render(request, 'home.html', context)

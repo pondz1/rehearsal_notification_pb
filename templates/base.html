@@ -44,47 +44,59 @@
             <!-- Logo และ Main Menu -->
             <div class="flex items-center">
                 <div class="flex-shrink-0">
-                    <a href="{% url 'maintenance:maintenance_list' %}"
+                    <a href="{% url 'maintenance:home' %}"
                        class="text-white font-bold text-xl">ระบบแจ้งซ่อม</a>
                 </div>
 
                 <!-- Desktop Menu -->
-                <div class="hidden md:block">
-                    <div class="ml-10 flex items-baseline space-x-4">
-                        <a href="{% url 'maintenance:maintenance_list' %}"
-                           class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
-                            รายการแจ้งซ่อม
-                        </a>
-
-                        <a href="{% url 'maintenance:maintenance_create' %}"
-                           class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
-                            แจ้งซ่อมใหม่
-                        </a>
-
-                        {% if 'Technicians' in user.groups.all|stringformat:'s' %}
-                            <a href="{% url 'maintenance:maintenance_job' %}"
-                               class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
-                                รายการที่ต้องซ่อม
-                            </a>
-                        {% endif %}
-
-                        {% if user.is_staff %}
-                            <a href="{% url 'maintenance:maintenance_manage' %}"
+                {% if 'Executives' in user.groups.all|stringformat:'s' %}
+                    <div class="hidden md:block">
+                        <div class="ml-10 flex items-baseline space-x-4">
+                            <a href="{% url 'maintenance:maintenance_executives' %}"
                                class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                                 จัดการรายการแจ้งซ่อม
                             </a>
-
-                            <a href="{% url 'maintenance:reports' %}"
-                               class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
-                                รายงานสถิติ
-                            </a>
-                            <a href="{% url 'admin:index' %}"
-                               class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
-                                Site administration
-                            </a>
-                        {% endif %}
+                        </div>
                     </div>
-                </div>
+                {% else %}
+                    <div class="hidden md:block">
+                        <div class="ml-10 flex items-baseline space-x-4">
+                            <a href="{% url 'maintenance:maintenance_list' %}"
+                               class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                รายการแจ้งซ่อม
+                            </a>
+
+                            <a href="{% url 'maintenance:maintenance_create' %}"
+                               class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                แจ้งซ่อมใหม่
+                            </a>
+
+                            {% if 'Technicians' in user.groups.all|stringformat:'s' %}
+                                <a href="{% url 'maintenance:maintenance_job' %}"
+                                   class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                    รายการที่ต้องซ่อม
+                                </a>
+                            {% endif %}
+
+                            {% if user.is_staff %}
+                                <a href="{% url 'maintenance:maintenance_manage' %}"
+                                   class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                    จัดการรายการแจ้งซ่อม
+                                </a>
+
+                                <a href="{% url 'maintenance:reports' %}"
+                                   class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                    รายงานสถิติ
+                                </a>
+                                <a href="{% url 'admin:index' %}"
+                                   class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                    Site administration
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+
             </div>
 
             <!-- User Menu & Notifications -->
@@ -170,40 +182,50 @@
 
     <!-- Mobile menu -->
     <div class="md:hidden" x-show="mobileMenu" @click.away="mobileMenu = false">
-        <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <a href="{% url 'maintenance:maintenance_list' %}"
-               class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
-                รายการแจ้งซ่อม
-            </a>
-
-            <a href="{% url 'maintenance:maintenance_create' %}"
-               class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
-                แจ้งซ่อมใหม่
-            </a>
-
-            {% if 'Technicians' in user.groups.all|stringformat:'s' %}
-                <a href="{% url 'maintenance:maintenance_job' %}"
-                   class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
-                    รายการที่ต้องซ่อม
-                </a>
-            {% endif %}
-
-            {% if user.is_staff %}
-                <a href="{% url 'maintenance:maintenance_manage' %}"
+        {% if 'Executives' in user.groups.all|stringformat:'s' %}
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="{% url 'maintenance:maintenance_executives' %}"
                    class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
                     จัดการรายการแจ้งซ่อม
                 </a>
+            </div>
+        {% else %}
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="{% url 'maintenance:maintenance_list' %}"
+                   class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                    รายการแจ้งซ่อม
+                </a>
 
-                <a href="{% url 'maintenance:reports' %}"
+                <a href="{% url 'maintenance:maintenance_create' %}"
                    class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
-                    รายงานสถิติ
+                    แจ้งซ่อมใหม่
                 </a>
-                <a href="{% url 'admin:index' %}"
-                   class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
-                    Site administration
-                </a>
-            {% endif %}
-        </div>
+
+                {% if 'Technicians' in user.groups.all|stringformat:'s' %}
+                    <a href="{% url 'maintenance:maintenance_job' %}"
+                       class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                        รายการที่ต้องซ่อม
+                    </a>
+                {% endif %}
+
+                {% if user.is_staff %}
+                    <a href="{% url 'maintenance:maintenance_manage' %}"
+                       class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                        จัดการรายการแจ้งซ่อม
+                    </a>
+
+                    <a href="{% url 'maintenance:reports' %}"
+                       class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                        รายงานสถิติ
+                    </a>
+                    <a href="{% url 'admin:index' %}"
+                       class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                        Site administration
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+
 
         <!-- Mobile profile section -->
         <div class="pt-4 pb-3 border-t border-gray-700">

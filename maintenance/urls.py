@@ -3,12 +3,14 @@ from .views import *
 
 app_name = 'maintenance'
 urlpatterns = [
-    path('', MaintenanceListView.as_view(), name='maintenance_list'),
+    path('', home, name='home'),
+    path('list', MaintenanceListView.as_view(), name='maintenance_list'),
     path('create/', MaintenanceCreateView.as_view(), name='maintenance_create'),
     path('job/', MaintenanceJobListView.as_view(), name='maintenance_job'),
     path('detail/<int:pk>/', MaintenanceDetailView.as_view(), name='maintenance_detail'),
     path('<int:pk>/edit/', MaintenanceRequestEditView.as_view(), name='maintenance_edit'),
     path('manage/', MaintenanceManageView.as_view(), name='maintenance_manage'),
+    path('manage/executives', MaintenanceExecutivesManageView.as_view(), name='maintenance_executives'),
     path('maintenance/<int:pk>/evaluate/', evaluate_request, name='evaluate_request'),
 
     # New URLs
