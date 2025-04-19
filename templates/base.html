@@ -181,6 +181,13 @@
                 แจ้งซ่อมใหม่
             </a>
 
+            {% if 'Technicians' in user.groups.all|stringformat:'s' %}
+                <a href="{% url 'maintenance:maintenance_job' %}"
+                   class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                    รายการที่ต้องซ่อม
+                </a>
+            {% endif %}
+
             {% if user.is_staff %}
                 <a href="{% url 'maintenance:maintenance_manage' %}"
                    class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
