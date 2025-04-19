@@ -78,6 +78,15 @@ class MaintenanceListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         return MaintenanceRequest.objects.filter(requestor=self.request.user)
 
+class MaintenanceJobListView(LoginRequiredMixin, ListView):
+    model = MaintenanceRequest
+    template_name = 'maintenance/job_list.html'
+    context_object_name = 'maintenance_requests'
+
+    def get_queryset(self):
+        assigned_jobs = MaintenanceAssignment.objects.filter(technician=self.request.user).values_list(
+            'maintenance_request_id', flat=True)
+        return MaintenanceRequest.objects.filter(id__in=assigned_jobs)
 
 class MaintenanceCreateView(LoginRequiredMixin, CreateView):
     model = MaintenanceRequest

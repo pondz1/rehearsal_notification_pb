@@ -5,6 +5,7 @@ app_name = 'maintenance'
 urlpatterns = [
     path('', MaintenanceListView.as_view(), name='maintenance_list'),
     path('create/', MaintenanceCreateView.as_view(), name='maintenance_create'),
+    path('job/', MaintenanceJobListView.as_view(), name='maintenance_job'),
     path('detail/<int:pk>/', MaintenanceDetailView.as_view(), name='maintenance_detail'),
     path('<int:pk>/edit/', MaintenanceRequestEditView.as_view(), name='maintenance_edit'),
     path('manage/', MaintenanceManageView.as_view(), name='maintenance_manage'),
