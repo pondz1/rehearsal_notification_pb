@@ -73,40 +73,50 @@ class PurchaseRequestForm(forms.ModelForm):
     ALLOWED_STATUS = ['OUTSOURCED', 'NEED_PARTS', 'TRANSFERRED_PARTS']
 
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
-        # ตรวจสอบว่าเป็น edit mode หรือไม่
         is_edit_mode = self.instance.pk is not None
 
+        # Configure maintenance_request queryset
         if is_edit_mode:
-            # กรณี edit mode ให้แสดง maintenance request ที่เลือกไว้เดิม
             maintenance_requests = MaintenanceRequest.objects.filter(
                 Q(status__in=self.ALLOWED_STATUS) |
                 Q(pk=self.instance.maintenance_request.pk)
             )
+            # Make maintenance_request readonly in edit mode
+            self.fields['maintenance_request'].widget.attrs['disabled'] = True
+            self.fields['maintenance_request'].widget.attrs['readonly'] = True
         else:
-            # กรณี create mode แสดงเฉพาะ maintenance requests ที่มี status ที่อนุญาต
             maintenance_requests = MaintenanceRequest.objects.filter(
                 status__in=self.ALLOWED_STATUS
             )
 
         self.fields['maintenance_request'].queryset = maintenance_requests
 
+        # Configure evaluation queryset
         if is_edit_mode:
-            # กรณี edit mode ให้แสดง evaluation ที่เลือกไว้เดิม
             self.fields['evaluation'].queryset = RepairEvaluation.objects.filter(
                 maintenance_request=self.instance.maintenance_request
             )
+            # Make evaluation readonly in edit mode
+            self.fields['evaluation'].widget.attrs['disabled'] = True
+            self.fields['evaluation'].widget.attrs['readonly'] = True
         elif maintenance_requests.first() is not None:
-            # กรณี create mode และมี maintenance requests
             self.fields['evaluation'].queryset = RepairEvaluation.objects.filter(
                 maintenance_request=maintenance_requests.first()
             )
         else:
-            # กรณีไม่มี maintenance requests
             self.fields['evaluation'].queryset = RepairEvaluation.objects.none()
 
+    def clean(self):
+        """
+        Ensure disabled fields are not excluded from cleaned_data
+        """
+        cleaned_data = super().clean()
+        if self.instance.pk:
+            cleaned_data['maintenance_request'] = self.instance.maintenance_request
+            cleaned_data['evaluation'] = self.instance.evaluation
+        return cleaned_data
 
     class Meta:
         model = PurchaseRequest
