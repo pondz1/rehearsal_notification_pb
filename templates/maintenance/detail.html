@@ -9,7 +9,7 @@
                 <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
                     งานซ่อมบำรุง #{{ maintenance.id }}
                 </h2>
-                {% include 'common/maintenance_status.html' %}
+                {% include 'common/maintenance_status.html' with status=maintenance.status status_display=maintenance.get_status_display %}
             </div>
 
             <!-- ปุ่มดำเนินการต่างๆ -->
