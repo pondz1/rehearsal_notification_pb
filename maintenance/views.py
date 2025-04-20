@@ -17,7 +17,7 @@ from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 
-from .forms import MaintenanceRequestForm, CommentForm, UserForm, UserProfileForm
+from .forms import MaintenanceRequestForm, CommentForm, UserForm, UserProfileForm, PurchaseRequestForm, PRItemFormSet
 from .notifications import send_notification
 from .serializers import *
 
@@ -83,6 +83,7 @@ class MaintenanceCreateView(LoginRequiredMixin, CreateView):
 
         return response
 
+
 class MaintenanceDetailView(LoginRequiredMixin, DetailView):
     model = MaintenanceRequest
     template_name = 'maintenance/detail.html'
@@ -95,7 +96,7 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
         if not self.request.user.is_staff and not is_executives_check(self.request.user):
             base_query = base_query.filter(
                 Q(requestor=self.request.user) |  # ผู้แจ้งซ่อม
-                Q(maintenanceassignment__technician=self.request.user) # ช่างที่ได้รับมอบหมาย
+                Q(maintenanceassignment__technician=self.request.user)  # ช่างที่ได้รับมอบหมาย
             )
 
         # เพิ่ม prefetch_related สำหรับข้อมูลที่เกี่ยวข้อง
@@ -138,7 +139,8 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
 
         # เช็คสถานะที่อนุญาตให้ประเมินได้
         can_evaluate = is_assigned_technician and maintenance.status in ['ASSIGNED',
-                                                                         'EVALUATING'] and not has_evaluation
+                                                                         'EVALUATING',
+                                                                         'TRANSFERRED_PARTS'] and not has_evaluation
 
         # เพิ่มข้อมูลเกี่ยวกับการประเมิน
         context.update({
@@ -217,6 +219,8 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
             self.object.status = 'OUTSOURCED'
         elif result == 'CENTRAL_DEPT':
             self.object.status = 'TRANSFERRED'
+        elif result == 'CENTRAL_DEPT_PARTS':
+            self.object.status = 'TRANSFERRED_PARTS'
         elif result == 'NEED_PARTS':
             self.object.status = 'NEED_PARTS'
 
@@ -577,7 +581,6 @@ def evaluate_request(request, pk):
     old_status = maintenance.status
 
     if not StatusLog.objects.filter(maintenance_request_id=maintenance.id, new_status='EVALUATING').exists():
-
         maintenance.status = 'EVALUATING'
         maintenance.save()
 
@@ -623,6 +626,8 @@ def evaluate_request(request, pk):
             maintenance.status = 'OUTSOURCED'
         elif result == 'CENTRAL_DEPT':
             maintenance.status = 'TRANSFERRED'
+        elif result == 'CENTRAL_DEPT_PARTS':
+            maintenance.status = 'TRANSFERRED_PARTS'
         elif result == 'NEED_PARTS':
             maintenance.status = 'NEED_PARTS'
 
@@ -935,3 +940,285 @@ def home(request):
     elif request.user.is_staff:
         return redirect(to='maintenance:maintenance_manage')
     return redirect(to='maintenance:maintenance_list')
+
+
+class PurchaseRequestListView(LoginRequiredMixin, ListView):
+    model = PurchaseRequest
+    template_name = 'purchase/pr_list.html'
+    context_object_name = 'purchase_requests'
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if not self.request.user.has_perm('maintenance.approve_pr'):
+            # Regular users see only their own PRs
+            queryset = queryset.filter(requested_by=self.request.user)
+        if self.request.user.has_perm('maintenance.approve_pr') and not self.request.user.is_staff:
+            queryset = queryset.exclude(status__in=['DRAFT'])
+
+        return queryset.order_by('-created_at')
+
+    def post(self, request, *args, **kwargs):
+        _action = request.POST.get('action')
+
+        if _action == 'update_status':
+            return self._handle_status_update(request)
+
+        messages.error(request, 'การดำเนินการไม่ถูกต้อง')
+        return redirect('maintenance:pr_list')
+
+    @staticmethod
+    def _handle_status_update(request):
+        _id = request.POST.get('id')
+        new_status = request.POST.get('status')
+        if new_status in ['PENDING']:
+
+            pr = PurchaseRequest.objects.filter(id=_id).first()
+            maintenance_request = pr.maintenance_request
+            old_status = maintenance_request.status
+
+            pr.status = 'PENDING'
+            pr.save()
+
+            maintenance_request.status = 'PR_PENDING'
+            maintenance_request.save()
+
+            StatusLog.objects.create(
+                maintenance_request=maintenance_request,
+                changed_by=request.user,
+                old_status=old_status,
+                new_status='PR_PENDING'
+            )
+
+            approvers = User.objects.filter(
+                Q(is_staff=True) |
+                Q(groups__name='Executives')
+            ).distinct()
+
+            for approver in approvers:
+                send_notification(
+                    user_id=approver.id,
+                    title='มีใบขอซื้อรอการอนุมัติ',
+                    message=f'ใบขอซื้อเลขที่ {pr.pr_number} รอการอนุมัติ',
+                    maintenance_request=maintenance_request
+                )
+
+            messages.success(request, 'ส่งอนุมัติสำเร็จ')
+        else:
+            messages.error(request, 'ส่งอนุมัติล้มเหลว')
+        return redirect('maintenance:pr_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context.update({
+            'can_send_approve_pr': self.request.user.is_staff,
+        })
+
+        return context
+
+
+class PurchaseRequestCreateView(LoginRequiredMixin, CreateView):
+    model = PurchaseRequest
+    form_class = PurchaseRequestForm
+    template_name = 'purchase/pr_create.html'
+    success_url = reverse_lazy('maintenance:pr_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['items_formset'] = PRItemFormSet(self.request.POST)
+        else:
+            context['items_formset'] = PRItemFormSet()
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        items_formset = context['items_formset']
+        form.instance.requested_by = self.request.user
+
+        if form.is_valid() and items_formset.is_valid():
+            self.object = form.save()
+            items_formset.instance = self.object
+            items_formset.save()
+
+            # เพิ่มการแจ้งเตือนเมื่อสร้างสำเร็จ
+            messages.success(self.request, f'สร้างใบขอซื้อ {self.object.pr_number} สำเร็จ')
+
+            if form.instance.status == 'DRAFT':
+                # อัพเดทสถานะงานซ่อม
+                maintenance_request = form.instance.maintenance_request
+                old_status = maintenance_request.status
+                maintenance_request.status = 'PR_DRAFT'
+                maintenance_request.save()
+
+                # บันทึก log การเปลี่ยนสถานะ
+                StatusLog.objects.create(
+                    maintenance_request=maintenance_request,
+                    changed_by=self.request.user,
+                    old_status=old_status,
+                    new_status='PR_DRAFT'
+                )
+
+            return redirect(self.success_url)
+        else:
+            # กรณีที่ข้อมูลไม่ผ่านการตรวจสอบ
+            messages.error(self.request, 'กรุณาตรวจสอบข้อมูลให้ถูกต้อง')
+            return self.render_to_response(self.get_context_data(form=form))
+
+    def form_invalid(self, form):
+        # จัดการกรณี form ไม่ผ่านการตรวจสอบ
+        messages.error(self.request, 'กรุณาตรวจสอบข้อมูลให้ถูกต้อง')
+        return super().form_invalid(form)
+
+    def get_initial(self):
+        # กำหนดค่าเริ่มต้นให้กับฟอร์ม
+        initial = super().get_initial()
+        if hasattr(self.request.user, 'department'):
+            initial['department'] = self.request.user.department
+        return initial
+
+
+
+class PurchaseRequestDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
+    model = PurchaseRequest
+    template_name = 'purchase/pr_detail.html'
+    context_object_name = 'pr'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        can_edit = self.request.user.is_staff and self.object.status == 'DRAFT'
+        context.update({
+            'can_edit': can_edit,
+        })
+
+        return context
+
+    def test_func(self):
+        return self.request.user.is_staff or is_executives_check(self.request.user)
+
+
+@login_required
+@permission_required('maintenance.approve_pr')
+def approve_pr(request, pk):
+    pr = get_object_or_404(PurchaseRequest, pk=pk)
+    if request.method == 'POST':
+        pr.status = 'APPROVED'
+        pr.approved_by = request.user
+        pr.approved_at = timezone.now()
+        pr.save()
+        messages.success(request, 'อนุมัติใบขอซื้อเรียบร้อยแล้ว')
+    return redirect('maintenance:pr_detail', pk=pk)
+
+
+@login_required
+@permission_required('maintenance.reject_pr')
+def reject_pr(request, pk):
+    pr = get_object_or_404(PurchaseRequest, pk=pk)
+    if request.method == 'POST':
+        pr.status = 'REJECTED'
+        pr.rejection_reason = request.POST.get('rejection_reason')
+        pr.save()
+        messages.success(request, 'ปฏิเสธใบขอซื้อเรียบร้อยแล้ว')
+    return redirect('maintenance:pr_detail', pk=pk)
+
+
+# views.py
+class PurchaseRequestUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = PurchaseRequest
+    form_class = PurchaseRequestForm
+    template_name = 'purchase/pr_edit.html'
+    context_object_name = 'pr'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['items_formset'] = PRItemFormSet(
+                self.request.POST,
+                instance=self.object
+            )
+        else:
+            context['items_formset'] = PRItemFormSet(instance=self.object)
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        items_formset = context['items_formset']
+
+        if form.is_valid() and items_formset.is_valid():
+            # Check if status is being changed to PENDING
+            new_status = self.request.POST.get('status')
+            if new_status == 'PENDING':
+                form.instance.status = 'PENDING'
+
+            self.object = form.save()
+            items_formset.instance = self.object
+            items_formset.save()
+
+            messages.success(self.request, 'บันทึกการแก้ไขเรียบร้อยแล้ว')
+
+            # ถ้าสถานะเป็น PENDING ให้แจ้งเตือนผู้อนุมัติ
+            if form.instance.status == 'PENDING':
+
+                self.submit_for_approval(self.request)
+                # ส่งการแจ้งเตือนไปยังผู้มีสิทธิ์อนุมัติ
+                approvers = User.objects.filter(
+                    Q(is_staff=True) |
+                    Q(groups__name='Executives')
+                ).distinct()
+
+                for approver in approvers:
+                    send_notification(
+                        user_id=approver.id,
+                        title='มีใบขอซื้อรอการอนุมัติ',
+                        message=f'ใบขอซื้อเลขที่ {self.object.pr_number} รอการอนุมัติ',
+                        maintenance_request=self.object
+                    )
+
+            return redirect('maintenance:pr_detail', pk=self.object.pk)
+
+        return self.render_to_response(self.get_context_data(form=form))
+
+    def get_queryset(self):
+        # Only allow editing of DRAFT status PRs
+        return super().get_queryset().filter(status='DRAFT')
+
+    def test_func(self):
+        return self.request.user.is_staff
+
+    def submit_for_approval(self, request, *args, **kwargs):
+        pr = self.get_object()
+        maintenance_request = pr.maintenance_request
+        old_status = maintenance_request.status
+
+        pr.status = 'PENDING'
+        pr.save()
+
+        maintenance_request.status = 'PR_PENDING'
+        maintenance_request.save()
+
+        StatusLog.objects.create(
+            maintenance_request=maintenance_request,
+            changed_by=request.user,
+            old_status=old_status,
+            new_status='PR_PENDING'
+        )
+
+
+def get_evaluations(request, maintenance_request_id):
+    evaluations = RepairEvaluation.objects.filter(
+        maintenance_request_id=maintenance_request_id,
+    )
+
+    formatted_evaluations = []
+    for eval in evaluations:
+        budget_text = f"{eval.estimated_cost:,.2f}" if eval.estimated_cost else "0.00"
+        text = f"{eval.get_result_display()} - งบประมาณ: {budget_text} บาท"
+
+        formatted_evaluations.append({
+            'id': eval.id,
+            'text': text,
+            'estimated_cost': float(eval.estimated_cost) if eval.estimated_cost else 0,
+            'parts_needed': eval.parts_needed
+        })
+
+    return JsonResponse(formatted_evaluations, safe=False)

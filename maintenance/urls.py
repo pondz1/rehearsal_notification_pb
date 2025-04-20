@@ -40,5 +40,13 @@ urlpatterns = [
          name='api_get_evaluation'),
     path('api/maintenance/<int:request_id>/approve-repair/', approve_repair, name='api_approve_repair'),
     path('api/maintenance/<int:request_id>/approve-parts/', approve_parts, name='api_approve_parts'),
-    # path('api/departments/', get_departments, name='get_departments'),
+
+    path('pr/', PurchaseRequestListView.as_view(), name='pr_list'),
+    path('pr/create/', PurchaseRequestCreateView.as_view(), name='pr_create'),
+    path('pr/<int:pk>/', PurchaseRequestDetailView.as_view(), name='pr_detail'),
+    path('pr/<int:pk>/approve/', approve_pr, name='pr_approve'),
+    path('pr/<int:pk>/reject/', reject_pr, name='pr_reject'),
+    path('pr/<int:pk>/edit/', PurchaseRequestUpdateView.as_view(), name='pr_edit'),
+
+    path('api/get-evaluations/<int:maintenance_request_id>/',get_evaluations, name='get_evaluations'),
 ]

@@ -1,0 +1,256 @@
+<!-- templates/purchase/pr_create.html -->
+{% extends 'base.html' %}
+
+{% block title %}สร้างใบขอซื้อใหม่{% endblock %}
+
+{% block content %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="mb-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">สร้างใบขอซื้อใหม่</h1>
+            </div>
+            <div>
+                <a href="{% url 'maintenance:pr_list' %}"
+                   class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded">
+                    ยกเลิก
+                </a>
+            </div>
+        </div>
+
+        <form method="post" id="pr-form" class="space-y-6">
+            {% csrf_token %}
+            <input type="hidden" name="status" id="status-field" value="DRAFT">
+
+            <!-- Main Information -->
+            <div class="grid grid-cols-1 md:grid-cols-1 gap-6">
+                <div class="space-y-4">
+                    <div>
+                        <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            {{ form.title.label }}
+                        </label>
+                        {{ form.title }}
+                        {% if form.title.errors %}
+                            <p class="text-red-500 text-xs mt-1">{{ form.title.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.priority.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            {{ form.priority.label }}
+                        </label>
+                        {{ form.priority }}
+                        {% if form.priority.errors %}
+                            <p class="text-red-500 text-xs mt-1">{{ form.priority.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.maintenance_request.id_for_label }}"
+                               class="block text-sm font-medium text-gray-700">
+                            {{ form.maintenance_request.label }}
+                        </label>
+                        {{ form.maintenance_request }}
+                        {% if form.maintenance_request.errors %}
+                            <p class="text-red-500 text-xs mt-1">{{ form.maintenance_request.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="{{ form.evaluation.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            {{ form.evaluation.label }}
+                        </label>
+                        {{ form.evaluation }}
+                        {% if form.evaluation.errors %}
+                            <p class="text-red-500 text-xs mt-1">{{ form.evaluation.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.budget_code.id_for_label }}"
+                               class="block text-sm font-medium text-gray-700">
+                            {{ form.budget_code.label }}
+                        </label>
+                        {{ form.budget_code }}
+                        {% if form.budget_code.errors %}
+                            <p class="text-red-500 text-xs mt-1">{{ form.budget_code.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                    {{ form.description.label }}
+                </label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                    <p class="text-red-500 text-xs mt-1">{{ form.description.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Items Section -->
+            <div class="mt-8">
+                <h2 class="text-xl font-semibold mb-4">รายการสินค้า</h2>
+                {{ items_formset.management_form }}
+
+                <div id="items-container" class="space-y-4">
+                    {% for item_form in items_formset %}
+                        <div class="item-form border rounded-lg p-4 bg-gray-50">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">อะไหล่</label>
+                                    {{ item_form.part }}
+                                    {% if item_form.part.errors %}
+                                        <p class="text-red-500 text-xs mt-1">{{ item_form.part.errors.0 }}</p>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">จำนวน</label>
+                                    {{ item_form.quantity }}
+                                    {% if item_form.quantity.errors %}
+                                        <p class="text-red-500 text-xs mt-1">{{ item_form.quantity.errors.0 }}</p>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">ราคาต่อหน่วย</label>
+                                    {{ item_form.unit_price }}
+                                    {% if item_form.unit_price.errors %}
+                                        <p class="text-red-500 text-xs mt-1">{{ item_form.unit_price.errors.0 }}</p>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">หมายเหตุ</label>
+                                    {{ item_form.notes }}
+                                    {% if item_form.notes.errors %}
+                                        <p class="text-red-500 text-xs mt-1">{{ item_form.notes.errors.0 }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {% if items_formset.can_delete %}
+                                <div class="mt-2 flex justify-end">
+                                    <div class="flex items-center space-x-2">
+                                        {{ item_form.DELETE }}
+                                        <label class="text-sm text-red-600">ลบรายการนี้</label>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="mt-4">
+                    <button type="button"
+                            id="add-item"
+                            class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                        เพิ่มรายการ
+                    </button>
+                </div>
+            </div>
+
+            <!-- Submit Buttons -->
+            <div class="flex justify-end space-x-4 mt-6">
+                <button type="submit"
+                        class="bg-blue-500 hover:bg-blue-700 text-white px-6 py-2 rounded">
+                    บันทึกแบบร่าง
+                </button>
+            </div>
+        </form>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const itemsContainer = document.getElementById('items-container');
+            const addItemButton = document.getElementById('add-item');
+
+            let formCount = parseInt(document.getElementById('id_items-TOTAL_FORMS').value);
+
+            function updateElementIndex(el, prefix, ndx) {
+                const pattern = new RegExp('(' + prefix + '-\\d+)');
+                const replacement = prefix + '-' + ndx;
+                if (el.id) el.id = el.id.replace(pattern, replacement);
+                if (el.name) el.name = el.name.replace(pattern, replacement);
+                if (el.for) el.for = el.for.replace(pattern, replacement);
+            }
+
+            function cloneMore() {
+                const newElement = itemsContainer.children[0].cloneNode(true);
+                // Clear the values
+                newElement.querySelectorAll('input:not([type=hidden])').forEach(input => {
+                    input.value = '';
+                });
+                newElement.querySelectorAll('select').forEach(select => {
+                    select.selectedIndex = 0;
+                });
+
+                formCount++;
+                document.getElementById('id_items-TOTAL_FORMS').value = formCount;
+
+                // Update form index
+                newElement.querySelectorAll('input, select, label').forEach(element => {
+                    updateElementIndex(element, 'items', formCount - 1);
+                });
+
+                itemsContainer.appendChild(newElement);
+            }
+
+            addItemButton.addEventListener('click', cloneMore);
+        });
+
+        function submitForm(status) {
+            document.getElementById('status-field').value = status;
+            console.log(document.getElementById('status-field').value)
+            document.getElementById('pr-form').submit();
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const maintenanceSelect = document.getElementById('id_maintenance_request');
+            const evaluationSelect = document.getElementById('id_evaluation');
+
+            maintenanceSelect.addEventListener('change', function () {
+                const maintenanceRequestId = this.value;
+                evaluationSelect.disabled = true;
+
+                if (maintenanceRequestId) {
+                    fetch(`/api/get-evaluations/${maintenanceRequestId}/`)
+                        .then(response => response.json())
+                        .then(data => {
+                            evaluationSelect.innerHTML = '<option value="">---------</option>';
+
+                            data.forEach(evaluation => {
+                                const option = new Option(evaluation.text, evaluation.id);
+
+                                // เพิ่มข้อมูลเพิ่มเติมใน data attributes
+                                option.dataset.estimatedCost = evaluation.estimated_cost;
+                                option.dataset.partsNeeded = evaluation.parts_needed;
+
+                                evaluationSelect.add(option);
+                            });
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            evaluationSelect.innerHTML = '<option>Error loading data</option>';
+                        })
+                        .finally(() => {
+                            evaluationSelect.disabled = false;
+                        });
+                } else {
+                    evaluationSelect.innerHTML = '<option value="">---------</option>';
+                    evaluationSelect.disabled = false;
+                }
+            });
+
+            // อัพเดทข้อมูลอื่นๆ เมื่อเลือก evaluation
+            evaluationSelect.addEventListener('change', function () {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption.value) {
+                    // อัพเดทฟอร์มด้วยข้อมูลจาก evaluation
+                    {#document.getElementById('id_budget_code').value = selectedOption.dataset.estimatedCost ?? 0;#}
+                    // อาจจะเพิ่มการอัพเดทฟิลด์อื่นๆ
+                }
+            });
+        });
+
+    </script>
+{% endblock %}

@@ -1,7 +1,10 @@
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Layout, Row, Column, Submit
 from django import forms
 from django.contrib.auth.models import User
+from django.db.models import Q
 
-from .models import MaintenanceRequest, Comment, UserProfile
+from .models import MaintenanceRequest, Comment, UserProfile, PurchaseRequest, PRItem, RepairEvaluation
 
 
 class MaintenanceRequestForm(forms.ModelForm):
@@ -30,6 +33,7 @@ class MaintenanceRequestForm(forms.ModelForm):
             }),
         }
 
+
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comment
@@ -42,6 +46,7 @@ class CommentForm(forms.ModelForm):
             }),
         }
 
+
 class UserProfileForm(forms.ModelForm):
     class Meta:
         model = UserProfile
@@ -52,6 +57,7 @@ class UserProfileForm(forms.ModelForm):
             'notification_preferences': forms.Select(attrs={'class': 'form-select rounded-lg'})
         }
 
+
 class UserForm(forms.ModelForm):
     class Meta:
         model = User
@@ -61,3 +67,98 @@ class UserForm(forms.ModelForm):
             'last_name': forms.TextInput(attrs={'class': 'form-input rounded-lg'}),
             'email': forms.EmailInput(attrs={'class': 'form-input rounded-lg'})
         }
+
+
+class PurchaseRequestForm(forms.ModelForm):
+    ALLOWED_STATUS = ['OUTSOURCED', 'NEED_PARTS', 'TRANSFERRED_PARTS']
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+        # ตรวจสอบว่าเป็น edit mode หรือไม่
+        is_edit_mode = self.instance.pk is not None
+
+        if is_edit_mode:
+            # กรณี edit mode ให้แสดง maintenance request ที่เลือกไว้เดิม
+            maintenance_requests = MaintenanceRequest.objects.filter(
+                Q(status__in=self.ALLOWED_STATUS) |
+                Q(pk=self.instance.maintenance_request.pk)
+            )
+        else:
+            # กรณี create mode แสดงเฉพาะ maintenance requests ที่มี status ที่อนุญาต
+            maintenance_requests = MaintenanceRequest.objects.filter(
+                status__in=self.ALLOWED_STATUS
+            )
+
+        self.fields['maintenance_request'].queryset = maintenance_requests
+
+        if is_edit_mode:
+            # กรณี edit mode ให้แสดง evaluation ที่เลือกไว้เดิม
+            self.fields['evaluation'].queryset = RepairEvaluation.objects.filter(
+                maintenance_request=self.instance.maintenance_request
+            )
+        elif maintenance_requests.first() is not None:
+            # กรณี create mode และมี maintenance requests
+            self.fields['evaluation'].queryset = RepairEvaluation.objects.filter(
+                maintenance_request=maintenance_requests.first()
+            )
+        else:
+            # กรณีไม่มี maintenance requests
+            self.fields['evaluation'].queryset = RepairEvaluation.objects.none()
+
+
+    class Meta:
+        model = PurchaseRequest
+        fields = ['title', 'description', 'priority', 'maintenance_request',
+                  'evaluation', 'budget_code']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm'
+            }),
+            'description': forms.Textarea(attrs={
+                'rows': 4,
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm'
+            }),
+            'priority': forms.Select(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-2 py-2'
+            }),
+            'maintenance_request': forms.Select(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-2 py-2'
+            }),
+            'evaluation': forms.Select(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-2 py-2'
+            }),
+            'budget_code': forms.TextInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm'
+            }),
+        }
+
+
+class PRItemForm(forms.ModelForm):
+    class Meta:
+        model = PRItem
+        fields = ['part', 'quantity', 'unit_price', 'notes']
+        widgets = {
+            'part': forms.Select(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-2 py-2'
+            }),
+            'quantity': forms.NumberInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm'
+            }),
+            'unit_price': forms.NumberInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm'
+            }),
+            'notes': forms.TextInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm'
+            }),
+        }
+
+
+PRItemFormSet = forms.inlineformset_factory(
+    PurchaseRequest,
+    PRItem,
+    form=PRItemForm,
+    extra=1,
+    can_delete=True
+)

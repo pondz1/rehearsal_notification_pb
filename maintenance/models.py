@@ -6,19 +6,19 @@ from django.utils import timezone
 
 
 class MaintenanceCategory(models.Model):
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
+    name = models.CharField(max_length=100, verbose_name="ชื่อหมวดหมู่")
+    description = models.TextField(blank=True, verbose_name="รายละเอียด")
+    is_active = models.BooleanField(default=True, verbose_name="สถานะใช้งาน")
 
     class Meta:
-        verbose_name_plural = "Maintenance Categories"
+        verbose_name = "หมวดหมู่งานซ่อมบำรุง"
+        verbose_name_plural = "หมวดหมู่งานซ่อมบำรุง"
 
     def __str__(self):
         return self.name
 
 
 class MaintenanceRequest(models.Model):
-    # Add to MaintenanceRequest.STATUS_CHOICES
     STATUS_CHOICES = [
         ('PENDING', 'รอดำเนินการ'),
         ('ASSIGNED', 'มอบหมายแล้ว'),  # เมื่อช่างเทคนิคได้รับมอบหมาย
@@ -27,9 +27,16 @@ class MaintenanceRequest(models.Model):
         ('APPROVED', 'อนุมัติแล้ว'),  # อนุมัติให้ดำเนินการซ่อม
         ('IN_PROGRESS', 'กำลังดำเนินการ'),
         ('COMPLETED', 'เสร็จสมบูรณ์'),
-        ('OUTSOURCED', 'จ้างภายนอก'),  # ต้องการผู้รับเหมาภายนอก
-        ('TRANSFERRED', 'ส่งต่อไปส่วนกลาง'),  # ส่งไปยังแผนกส่วนกลาง
+        ('OUTSOURCED', 'จ้างภายนอก'), # ต้องการผู้รับเหมาภายนอก
+        ('TRANSFERRED', 'ส่งต่อไปส่วนกลาง') , # ส่งไปยังแผนกส่วนกลาง
+        ('TRANSFERRED_PARTS', 'ส่งต่อไปส่วนกลาง (ต้องการอะไหล่)') , # ส่งไปยังแผนกส่วนกลาง
         ('NEED_PARTS', 'รออะไหล่'),  # ต้องการอะไหล่ก่อนการซ่อม
+        ('PR_DRAFT', 'กำลังทำใบขอซื้อ'),  # เพิ่มใหม่
+        ('PR_PENDING', 'รออนุมัติใบขอซื้อ'),  # เพิ่มใหม่
+        ('PR_APPROVED', 'อนุมัติใบขอซื้อแล้ว'),  # เพิ่มใหม่
+        ('PO_CREATED', 'สร้างใบสั่งซื้อแล้ว'),  # เพิ่มใหม่
+        ('WAITING_DELIVERY', 'รอรับอะไหล่'),  # เพิ่มใหม่
+        ('PARTS_RECEIVED', 'ได้รับอะไหล่แล้ว'),  # เพิ่มใหม่
         ('REJECTED', 'ปฏิเสธ')
     ]
 
@@ -53,15 +60,15 @@ class MaintenanceRequest(models.Model):
     completion_date = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.title} - {self.status}"
+        return f"{self.title} - {self.get_status_display()}"
 
     @property
     def request_images(self):
         return self.images.all()
-
-    permissions = [
-        ("change_status", "Can change maintenance status"),
-    ]
+    class Meta:
+        permissions = [
+            ("change_status", "Can change maintenance status"),
+        ]
 
 
 class MaintenanceImage(models.Model):
@@ -192,6 +199,7 @@ class RepairEvaluation(models.Model):
         ('CAN_FIX', 'ซ่อมได้เอง'),
         ('OUTSOURCE', 'จ้างภายนอก'),
         ('CENTRAL_DEPT', 'ช่างกองกลาง'),
+        ('CENTRAL_DEPT_PARTS', 'ช่างกองกลาง (ต้องการอะไหล่)'),
         ('NEED_PARTS', 'ซ่อมได้ (ต้องการอะไหล่)'),
     ]
 
@@ -217,7 +225,8 @@ class RepairEvaluation(models.Model):
     approved_budget = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
-        return f"Evaluation for {self.maintenance_request.title}"
+        budget_text = f"{self.estimated_cost:,.2f}" if self.estimated_cost else "0.00"
+        return f"{self.get_result_display()} - งบประมาณ: {budget_text} บาท"
 
 
 class EvaluationImage(models.Model):
@@ -301,7 +310,7 @@ class PurchaseRequest(models.Model):
     # ผู้รับผิดชอบ
     requested_by = models.ForeignKey(User, on_delete=models.PROTECT,
                                      related_name='purchase_requests', verbose_name="ผู้ขอซื้อ")
-    department = models.CharField(max_length=100, verbose_name="แผนก")
+    # department = models.CharField(max_length=100, verbose_name="แผนก")
 
     # สถานะและวันที่
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT', verbose_name="สถานะ")

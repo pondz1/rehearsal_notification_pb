@@ -34,6 +34,10 @@
             ring: 2px;
             ring-color: #93C5FD;
         }
+
+        select + div.pointer-events-none {
+            display: none !important;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -54,7 +58,12 @@
                         <div class="ml-10 flex items-baseline space-x-4">
                             <a href="{% url 'maintenance:maintenance_executives' %}"
                                class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
-                                จัดการรายการแจ้งซ่อม
+                                รายการที่ต้องอนุมัติ
+                            </a>
+
+                            <a href="{% url 'maintenance:pr_list' %}"
+                               class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                รายการใบขอซื้อ (PR)
                             </a>
 
                             <a href="{% url 'maintenance:reports' %}"
@@ -88,6 +97,11 @@
                                 <a href="{% url 'maintenance:maintenance_manage' %}"
                                    class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                                     จัดการรายการแจ้งซ่อม
+                                </a>
+
+                                <a href="{% url 'maintenance:pr_list' %}"
+                                   class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                    รายการใบขอซื้อ (PR)
                                 </a>
 
                                 <a href="{% url 'maintenance:reports' %}"
@@ -192,7 +206,12 @@
             <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
                 <a href="{% url 'maintenance:maintenance_executives' %}"
                    class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
-                    จัดการรายการแจ้งซ่อม
+                    รายการที่ต้องอนุมัติ
+                </a>
+
+                <a href="{% url 'maintenance:pr_list' %}"
+                   class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                    รายการใบขอซื้อ (PR)
                 </a>
 
                 <a href="{% url 'maintenance:reports' %}"
@@ -223,6 +242,11 @@
                     <a href="{% url 'maintenance:maintenance_manage' %}"
                        class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
                         จัดการรายการแจ้งซ่อม
+                    </a>
+
+                    <a href="{% url 'maintenance:pr_list' %}"
+                       class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                        รายการใบขอซื้อ (PR)
                     </a>
 
                     <a href="{% url 'maintenance:reports' %}"

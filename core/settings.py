@@ -39,6 +39,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'crispy_forms',
+    'crispy_tailwind',
+    'widget_tweaks',
 
     'maintenance',
 ]
@@ -107,7 +110,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'th-TH'
 
 TIME_ZONE = 'Asia/Bangkok'
 
@@ -172,3 +175,7 @@ MAINTENANCE_PERMISSIONS = {
 LOGIN_REDIRECT_URL = '/'  # หน้าที่จะ redirect หลังจาก login สำเร็จ
 LOGOUT_REDIRECT_URL = '/accounts/login/'  # หน้าที่จะ redirect หลังจาก logout
 LOGIN_URL = '/accounts/login/'  # URL สำหรับหน้า login
+
+CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
+
+CRISPY_TEMPLATE_PACK = "tailwind"
