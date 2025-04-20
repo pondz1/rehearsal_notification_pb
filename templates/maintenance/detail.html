@@ -80,7 +80,7 @@
                             {% if current_assignment %}
                                 {{ current_assignment.technician.get_full_name|default:current_assignment.technician.username }}
                                 <p class="text-xs text-gray-500">
-                                    มอบหมายเมื่อ: {{ current_assignment.assigned_at|date:"d/m/Y" }}
+                                    มอบหมายเมื่อ: {{ current_assignment.assigned_at|date:"d/m/Y H:i" }}
                                 </p>
                             {% else %}
                                 <span class="text-yellow-600">ยังไม่ได้มอบหมาย</span>
@@ -315,7 +315,7 @@
 
 
         <!-- Add New Images -->
-        {% if maintenance.status != 'COMPLETED' %}
+        {% if maintenance.status != 'COMPLETED' and is_technician %}
             <div class="mt-8 bg-white shadow sm:rounded-lg">
                 <form method="post" enctype="multipart/form-data" class="mb-6">
                     {% csrf_token %}
@@ -354,7 +354,7 @@
                                     </p>
                                 {% endif %}
                                 <p class="mt-1 text-xs text-gray-500">
-                                    โดย: {{ log.changed_by.get_full_name|default:log.changed_by.username }}
+                                    โดย: {{ log.changed_by.get_full_name|default:log.changed_by.username }} เวลา: {{ log.changed_at|date:"d/m/Y H:i" }}
                                 </p>
                             </div>
                         </div>
@@ -394,8 +394,9 @@
                         <div class="bg-gray-50 rounded-lg p-4">
                             <div class="flex space-x-3">
                                 <div class="flex-shrink-0">
-                                    <img class="h-10 w-10 rounded-full" src="{% static 'images/default-avatar.png' %}"
-                                         alt="">
+                                    <img class="h-8 w-8 rounded-full"
+                                     src="https://ui-avatars.com/api/?name={{ comment.user.get_full_name|default:comment.user.username|urlencode }}&background=random"
+                                     alt="{{ comment.user.get_full_name|default:user.username }}">
                                 </div>
                                 <div class="flex-1">
                                     <div class="flex items-center justify-between">

@@ -136,8 +136,8 @@
                                     id="user-menu-button">
                                 <span class="sr-only">เปิดเมนูผู้ใช้</span>
                                 <img class="h-8 w-8 rounded-full"
-                                     src="https://ui-avatars.com/api/?name={{ user.get_full_name|urlencode }}&background=random"
-                                     alt="{{ user.get_full_name }}">
+                                     src="https://ui-avatars.com/api/?name={{ user.get_full_name|default:user.username|urlencode }}&background=random"
+                                     alt="{{ user.get_full_name|default:user.username }}">
                             </button>
                         </div>
 
@@ -243,11 +243,11 @@
             <div class="flex items-center px-5">
                 <div class="flex-shrink-0">
                     <img class="h-10 w-10 rounded-full"
-                         src="https://ui-avatars.com/api/?name={{ user.get_full_name|urlencode }}&background=random"
-                         alt="{{ user.get_full_name }}">
+                         src="https://ui-avatars.com/api/?name={{ user.get_full_name|default:user.username|urlencode }}&background=random"
+                         alt="{{ user.get_full_name|default:user.username }}">
                 </div>
                 <div class="ml-3">
-                    <div class="text-base font-medium leading-none text-white">{{ user.get_full_name }}</div>
+                    <div class="text-base font-medium leading-none text-white">{{ user.get_full_name|default:user.username }}</div>
                     <div class="text-sm font-medium leading-none text-gray-400">{{ user.email }}</div>
                 </div>
                 <div class="ml-auto" x-data="{ notificationCount: 0 }" x-init="
