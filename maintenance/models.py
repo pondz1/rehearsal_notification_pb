@@ -78,19 +78,6 @@ class MaintenanceImage(models.Model):
         return f"Image for {self.request.title} - {'Before' if self.is_before_image else 'After'}"
 
 
-class CompletionImage(models.Model):
-    request = models.ForeignKey(MaintenanceRequest, on_delete=models.CASCADE)
-    image = models.ImageField(upload_to='completion_images/%Y/%m/%d/')
-    caption = models.CharField(max_length=200, blank=True)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-uploaded_at']
-
-    def __str__(self):
-        return f"Completion image for {self.request.title}"
-
-
 class MaintenanceAssignment(models.Model):
     """Model for tracking maintenance request assignments to technicians"""
     maintenance_request = models.ForeignKey('MaintenanceRequest', on_delete=models.CASCADE)

@@ -22,49 +22,6 @@ from .notifications import send_notification
 from .serializers import *
 
 
-class MaintenanceRequestViewSet(viewsets.ModelViewSet):
-    queryset = MaintenanceRequest.objects.all()
-    serializer_class = MaintenanceRequestSerializer
-    parser_classes = (MultiPartParser, FormParser)
-
-    def perform_create(self, serializer):
-        serializer.save(requestor=self.request.user)
-
-    @action(detail=True, methods=['post'])
-    def upload_images(self, request, pk=None):
-        maintenance_request = self.get_object()
-        images = request.FILES.getlist('images')
-        is_before = request.data.get('is_before_image', 'true').lower() == 'true'
-
-        uploaded_images = []
-        for image in images:
-            maintenance_image = MaintenanceImage.objects.create(
-                request=maintenance_request,
-                image=image,
-                is_before_image=is_before,
-                caption=request.data.get('caption', '')
-            )
-            uploaded_images.append(MaintenanceImageSerializer(maintenance_image).data)
-
-        return Response(uploaded_images, status=status.HTTP_201_CREATED)
-
-    @action(detail=True, methods=['post'])
-    def upload_completion_images(self, request, pk=None):
-        maintenance_request = self.get_object()
-        images = request.FILES.getlist('images')
-
-        uploaded_images = []
-        for image in images:
-            completion_image = CompletionImage.objects.create(
-                request=maintenance_request,
-                image=image,
-                caption=request.data.get('caption', '')
-            )
-            uploaded_images.append(CompletionImageSerializer(completion_image).data)
-
-        return Response(uploaded_images, status=status.HTTP_201_CREATED)
-
-
 class MaintenanceCategoryViewSet(viewsets.ModelViewSet):
     queryset = MaintenanceCategory.objects.all()
     serializer_class = MaintenanceCategorySerializer
@@ -114,8 +71,17 @@ class MaintenanceCreateView(LoginRequiredMixin, CreateView):
                 is_before_image=True
             )
 
-        return response
+        # แจ้งเตือนผู้ดูแลระบบ/ผู้จัดการ
+        admins = User.objects.filter(is_staff=True)
+        for admin in admins:
+            send_notification(
+                user_id=admin.id,
+                title=f"มีคำขอซ่อมบำรุงใหม่",
+                message=f"มีคำขอซ่อมบำรุงใหม่: {self.object.title}",
+                maintenance_request=self.object
+            )
 
+        return response
 
 class MaintenanceDetailView(LoginRequiredMixin, DetailView):
     model = MaintenanceRequest

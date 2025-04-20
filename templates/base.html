@@ -56,6 +56,12 @@
                                class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
                                 จัดการรายการแจ้งซ่อม
                             </a>
+
+                            <a href="{% url 'maintenance:reports' %}"
+                               class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                                รายงานสถิติ
+                            </a>
+
                         </div>
                     </div>
                 {% else %}
@@ -117,7 +123,7 @@
                             </svg>
                             <span x-show="notificationCount > 0"
                                   x-text="notificationCount"
-                                  class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs">
+                                  class="absolute top-4 -right-6 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs">
                             </span>
                         </a>
                     </div>
@@ -188,6 +194,11 @@
                    class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
                     จัดการรายการแจ้งซ่อม
                 </a>
+
+                <a href="{% url 'maintenance:reports' %}"
+                   class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                    รายงานสถิติ
+                </a>
             </div>
         {% else %}
             <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
@@ -239,16 +250,25 @@
                     <div class="text-base font-medium leading-none text-white">{{ user.get_full_name }}</div>
                     <div class="text-sm font-medium leading-none text-gray-400">{{ user.email }}</div>
                 </div>
-                <div class="ml-auto">
+                <div class="ml-auto" x-data="{ notificationCount: 0 }" x-init="
+                        fetch('{% url 'maintenance:notification_count' %}')
+                            .then(response => response.json())
+                            .then(data => notificationCount = data.count)
+                    ">
                     <a href="{% url 'maintenance:notifications' %}"
-                       class="flex-shrink-0 bg-gray-800 p-1 rounded-full text-gray-400 hover:text-white">
+                       class="flex-shrink-0 bg-gray-800 p-1 rounded-full text-gray-400 hover:text-white relative">
                         <span class="sr-only">ดูการแจ้งเตือน</span>
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                   d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                         </svg>
+                        <span x-show="notificationCount > 0"
+                              x-text="notificationCount"
+                              class="absolute top-4 -right-6 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs">
+                        </span>
                     </a>
                 </div>
+
             </div>
             <div class="mt-3 px-2 space-y-1">
                 <a href="{% url 'maintenance:profile' %}"

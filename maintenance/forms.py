@@ -14,7 +14,7 @@ class MaintenanceRequestForm(forms.ModelForm):
                 'placeholder': 'กรอกหัวข้อการแจ้งซ่อม'
             }),
             'category': forms.Select(attrs={
-                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500'
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2'
             }),
             'location': forms.TextInput(attrs={
                 'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500',
