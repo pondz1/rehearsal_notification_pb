@@ -727,6 +727,14 @@ def assign_maintenance_request(request, request_id):
             maintenance_request=maintenance_request,
         )
 
+        # Send notification to user
+        send_notification(
+            user_id=maintenance_request.requestor.id,
+            title='งานแจ้งซ่อม',
+            message=f'งานแจ้งซ่อมของคุณได้รับมอบหมายงานแล้ว: {maintenance_request.title}',
+            maintenance_request=maintenance_request,
+        )
+
         # Return success response
         return JsonResponse({
             'success': True,
