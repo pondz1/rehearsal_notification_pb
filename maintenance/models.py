@@ -216,10 +216,10 @@ class UserProfile(models.Model):
 
 class RepairEvaluation(models.Model):
     EVALUATION_RESULT = [
-        ('CAN_FIX', 'สามารถซ่อมได้'),
-        ('OUTSOURCE', 'ต้องจ้างภายนอก'),
-        ('CENTRAL_DEPT', 'ส่งกองกลาง'),
-        ('NEED_PARTS', 'ต้องการอะไหล่ก่อนซ่อม'),
+        ('CAN_FIX', 'ซ่อมได้เอง'),
+        ('OUTSOURCE', 'จ้างภายนอก'),
+        ('CENTRAL_DEPT', 'ช่างกองกลาง'),
+        ('NEED_PARTS', 'ซ่อมได้ (ต้องการอะไหล่)'),
     ]
 
     maintenance_request = models.OneToOneField(MaintenanceRequest, on_delete=models.CASCADE, related_name='evaluation')

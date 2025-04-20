@@ -576,15 +576,17 @@ def evaluate_request(request, pk):
         return redirect('maintenance:maintenance_detail', pk=maintenance.pk)
     old_status = maintenance.status
 
-    maintenance.status = 'EVALUATING'
-    maintenance.save()
+    if not StatusLog.objects.filter(maintenance_request_id=maintenance.id, new_status='EVALUATING').exists():
 
-    StatusLog.objects.create(
-        maintenance_request=maintenance,
-        changed_by=request.user,
-        old_status=old_status,
-        new_status=maintenance.status,
-    )
+        maintenance.status = 'EVALUATING'
+        maintenance.save()
+
+        StatusLog.objects.create(
+            maintenance_request=maintenance,
+            changed_by=request.user,
+            old_status=old_status,
+            new_status=maintenance.status,
+        )
 
     if request.method == 'POST':
         # ดำเนินการประเมินงาน
