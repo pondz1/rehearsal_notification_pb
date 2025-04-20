@@ -1260,6 +1260,7 @@ class PurchaseOrderCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         context = self.get_context_data()
         items_formset = context['items_formset']
+        items_formset = POItemFormSet(self.request.POST, instance=self.object)
 
         if items_formset.is_valid():
             # Set PR and initial values
@@ -1280,8 +1281,10 @@ class PurchaseOrderCreateView(LoginRequiredMixin, CreateView):
             self.object.save()
 
             # Save items
-            items_formset.instance = self.object
-            items_formset.save()
+            for item_form in items_formset:
+                po_item = item_form.save(commit=False)
+                po_item.purchase_order = self.object  # Set FK!
+                po_item.save()
 
             # Send notifications
             self._send_notifications(_action)  # Changed action to _action
@@ -1411,6 +1414,27 @@ class PurchaseOrderIssueView(LoginRequiredMixin, PermissionRequiredMixin, Update
         po.issued_at = timezone.now()
         po.save()
 
+        assignment = po.purchase_request.maintenance_request.maintenanceassignment_set.first()
+        old_status = po.purchase_request.maintenance_request.status
+
+        po.purchase_request.maintenance_request.status = 'APPROVED'
+        po.purchase_request.maintenance_request.save()
+
+        StatusLog.objects.create(
+            maintenance_request=po.purchase_request.maintenance_request,
+            changed_by=self.request.user,
+            old_status=old_status,
+            new_status=po.purchase_request.maintenance_request.status,
+        )
+
+        # Send notification to technician
+        send_notification(
+            user_id=assignment.technician.id,
+            title='อนุมัติงาน',
+            message=f'งานซ่อม {po.purchase_request.maintenance_request.title} ได้รับการอนุมัติแล้ว สามารถเริ่มงานได้เลย',
+            maintenance_request=po.purchase_request.maintenance_request,
+        )
+
         # Update PR status if needed
         if po.purchase_request and po.purchase_request.status != 'FULFILLED':
             po.purchase_request.status = 'FULFILLED'
@@ -1421,88 +1445,3 @@ class PurchaseOrderIssueView(LoginRequiredMixin, PermissionRequiredMixin, Update
 
     def get_success_url(self):
         return reverse('maintenance:po_detail', kwargs={'pk': self.object.pk})
-
-
-class PurchaseOrderReceiveView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
-    model = GoodsReceipt
-    template_name = 'purchase/po_receive.html'
-    form_class = GoodsReceiptForm
-    permission_required = 'maintenance.receive_purchaseorder'
-
-    def get_purchase_order(self):
-        return get_object_or_404(PurchaseOrder, pk=self.kwargs['pk'])
-
-    def get_queryset(self):
-        return self.model.objects.select_related(
-            'purchase_order',
-            'purchase_order__vendor',
-            'purchase_order__purchase_request'
-        ).prefetch_related(
-            'purchase_order__items__part',
-            'purchase_order__items__receipt_items'
-        )
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['user'] = self.request.user
-        kwargs['po'] = self.get_purchase_order()
-        return kwargs
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        po = self.get_purchase_order()
-        context['po'] = po
-
-        if self.request.POST:
-            context['items_formset'] = GoodsReceiptItemFormSet(
-                self.request.POST,
-                po_items=po.items.all()
-            )
-        else:
-            context['items_formset'] = GoodsReceiptItemFormSet(
-                po_items=po.items.all()
-            )
-        return context
-
-    def form_valid(self, form):
-        context = self.get_context_data()
-        items_formset = context['items_formset']
-        po = self.get_purchase_order()
-
-        if po.status not in ['ISSUED', 'PARTIAL']:
-            messages.error(self.request, "สามารถรับสินค้าได้เฉพาะรายการที่ออกใบสั่งซื้อแล้วเท่านั้น")
-            return HttpResponseRedirect(reverse('maintenance:po_detail', kwargs={'pk': po.pk}))
-
-        if form.is_valid() and items_formset.is_valid():
-            # Create goods receipt
-            receipt = form.save(commit=False)
-            receipt.purchase_order = po
-            receipt.received_by = self.request.user
-            receipt.save()
-
-            # Save receipt items
-            items_formset.instance = receipt
-            items_formset.save()
-
-            # Update PO status
-            all_items_received = all(
-                item.is_fully_received
-                for item in po.items.all()
-            )
-
-            if all_items_received:
-                po.status = 'RECEIVED'
-            else:
-                po.status = 'PARTIAL'
-            po.save()
-
-            messages.success(
-                self.request,
-                f"บันทึกการรับสินค้าเลขที่ {receipt.receipt_number} เรียบร้อยแล้ว"
-            )
-            return HttpResponseRedirect(self.get_success_url())
-        else:
-            return self.form_invalid(form)
-
-    def get_success_url(self):
-        return reverse('maintenance:po_detail', kwargs={'pk': self.get_purchase_order().pk})

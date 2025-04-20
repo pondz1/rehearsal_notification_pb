@@ -54,6 +54,4 @@ urlpatterns = [
     path('po/', PurchaseOrderListView.as_view(), name='po_list'),
     path('po/<int:pk>/', PurchaseOrderDetailView.as_view(), name='po_detail'),
     path('po/<int:pk>/issue/', PurchaseOrderIssueView.as_view(), name='po_issue'),
-    path('po/<int:pk>/receive/', PurchaseOrderReceiveView.as_view(), name='po_receive'),
-
 ]

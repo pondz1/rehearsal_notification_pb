@@ -300,34 +300,18 @@ class GoodsReceiptForm(forms.ModelForm):
 
 
 class GoodsReceiptItemForm(forms.ModelForm):
-    remaining_quantity = forms.IntegerField(
-        label='จำนวนคงเหลือ',
-        required=False,
-        disabled=True
-    )
-
     class Meta:
         model = GoodsReceiptItem
         fields = ['quantity', 'notes']
-
-    def __init__(self, *args, **kwargs):
-        self.po_item = kwargs.pop('po_item', None)
-        super().__init__(*args, **kwargs)
-
-        if self.po_item:
-            self.fields['remaining_quantity'].initial = self.po_item.remaining_quantity
-            self.fields['quantity'].widget.attrs.update({
-                'max': self.po_item.remaining_quantity,
-                'min': 0
+        widgets = {
+            'quantity': forms.NumberInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm',
+                'min': 0,
+            }),
+            'notes': forms.TextInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm',
             })
-
-    def clean_quantity(self):
-        quantity = self.cleaned_data.get('quantity')
-        if quantity > self.po_item.remaining_quantity:
-            raise forms.ValidationError(
-                f"จำนวนที่รับไม่สามารถมากกว่าจำนวนคงเหลือ ({self.po_item.remaining_quantity})"
-            )
-        return quantity
+        }
 
 
 class BaseGoodsReceiptItemFormSet(forms.BaseInlineFormSet):

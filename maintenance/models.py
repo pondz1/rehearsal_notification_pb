@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import User
@@ -69,6 +71,7 @@ class MaintenanceRequest(models.Model):
         permissions = [
             ("change_status", "Can change maintenance status"),
         ]
+        ordering = ['-created_at']
 
 
 class MaintenanceImage(models.Model):
@@ -430,7 +433,7 @@ class PurchaseOrder(models.Model):
 
     # ข้อมูลการเงิน
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="จำนวนเงินรวม")
-    vat_percent = models.DecimalField(max_digits=5, decimal_places=2, default=7.0, verbose_name="ภาษีมูลค่าเพิ่ม %")
+    vat_percent = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('7.0'), verbose_name="ภาษีมูลค่าเพิ่ม %")
     vat_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="จำนวนภาษีมูลค่าเพิ่ม")
     grand_total = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="ยอดรวมทั้งสิ้น")
 
@@ -480,7 +483,7 @@ class PurchaseOrder(models.Model):
             self.po_number = f"{prefix}{year}{month}{new_num:04d}"
 
         # คำนวณภาษีและยอดรวม
-        self.vat_amount = (self.total_amount * self.vat_percent) / 100
+        self.vat_amount = (self.total_amount * Decimal(str(self.vat_percent))) / Decimal('100')
         self.grand_total = self.total_amount + self.vat_amount
 
         super().save(*args, **kwargs)
@@ -490,7 +493,7 @@ class PurchaseOrder(models.Model):
         if self.total_amount != total:
             self.total_amount = total
             # คำนวณภาษีและยอดรวมใหม่
-            self.vat_amount = (self.total_amount * self.vat_percent) / 100
+            self.vat_amount = (self.total_amount * self.vat_percent) / Decimal('100')
             self.grand_total = self.total_amount + self.vat_amount
             # ใช้ update เพื่อไม่ให้เรียก save อีกรอบ
             PurchaseOrder.objects.filter(id=self.id).update(
@@ -509,6 +512,10 @@ class POItem(models.Model):
     part = models.ForeignKey(Part, on_delete=models.PROTECT, verbose_name="อะไหล่")
     quantity = models.IntegerField(verbose_name="จำนวน")
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="ราคาต่อหน่วย")
+
+    @property
+    def total_amount(self):
+        return self.quantity * self.unit_price
 
     # ข้อมูลการรับสินค้า
     received_quantity = models.IntegerField(default=0, verbose_name="จำนวนที่รับแล้ว")

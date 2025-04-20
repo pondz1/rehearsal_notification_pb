@@ -121,12 +121,6 @@
                            class="text-indigo-600 hover:text-indigo-900">
                             ดูรายละเอียด
                         </a>
-                        {% if po.status == 'DRAFT' and perms.maintenance.change_purchaseorder %}
-                        <a href="{% url 'maintenance:po_edit' po.id %}"
-                           class="text-blue-600 hover:text-blue-900">
-                            แก้ไข
-                        </a>
-                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}

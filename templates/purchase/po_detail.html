@@ -129,10 +129,10 @@
             {% endif %}
 
             {% if po.status == 'ISSUED' and perms.maintenance.receive_purchaseorder %}
-                <a href="{% url 'maintenance:po_receive' po.id %}"
-                   class="bg-blue-500 hover:bg-blue-700 text-white px-6 py-2 rounded">
-                    บันทึกรับสินค้า
-                </a>
+{#                <a href="{% url 'maintenance:po_receive' po.id %}"#}
+{#                   class="bg-blue-500 hover:bg-blue-700 text-white px-6 py-2 rounded">#}
+{#                    บันทึกรับสินค้า#}
+{#                </a>#}
             {% endif %}
         </div>
     </div>
