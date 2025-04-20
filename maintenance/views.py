@@ -1271,10 +1271,11 @@ class PurchaseOrderCreateView(LoginRequiredMixin, CreateView):
             _action = self.request.POST.get('action')
             if _action == 'issue':
                 self.object.status = 'ISSUED'
+                self.object.purchase_request.status = 'CONVERTED'
+                self.object.purchase_request.save()
             else:  # draft
                 self.object.status = 'DRAFT'
 
-            self.object.purchase_request.status = 'CONVERTED'
             # Save PO
             self.object.save()
 
