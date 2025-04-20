@@ -77,10 +77,11 @@
                         <td class="px-6 py-4 whitespace-nowrap">
                             {% if request.evaluation %}
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                    {% if request.evaluation.result == 'CAN_FIX' %}bg-blue-100 text-blue-800
-                                    {% elif request.evaluation.result == 'NEED_PARTS' %}bg-purple-100 text-purple-800
-                                    {% elif request.evaluation.result == 'OUTSOURCE' %}bg-pink-100 text-pink-800
-                                    {% elif request.evaluation.result == 'CENTRAL_DEPT' %}bg-indigo-100 text-indigo-800
+                                    {% if request.evaluation.result == 'CAN_FIX' %}bg-green-100 text-green-800
+                                    {% elif request.evaluation.result == 'NEED_PARTS' %}bg-amber-100 text-amber-800
+                                    {% elif request.evaluation.result == 'OUTSOURCE' %}bg-orange-100 text-orange-800
+                                    {% elif request.evaluation.result == 'CENTRAL_DEPT' %}bg-blue-100 text-blue-800
+                                    {% elif request.evaluation.result == 'CENTRAL_DEPT_PARTS' %}bg-indigo-100 text-indigo-800
                                     {% endif %}">
                                     {{ request.evaluation.get_result_display }}
                                 </span>

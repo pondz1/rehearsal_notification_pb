@@ -113,7 +113,7 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
 
         # ดึงข้อมูลการมอบหมายงานล่าสุด
         assignment = maintenance.maintenanceassignment_set.first()
-        status_allows_edit = maintenance.status not in ['COMPLETED', 'REJECTED']
+        status_allows_edit = maintenance.status in ['PENDING']
         status_allows_approve = maintenance.status in ['EVALUATED']
         can_edit = (self.request.user.is_staff or maintenance.requestor == self.request.user) and status_allows_edit
 

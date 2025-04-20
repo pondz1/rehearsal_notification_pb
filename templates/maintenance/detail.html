@@ -171,14 +171,15 @@
                         <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                             <dt class="text-sm font-medium text-gray-500">ผลการประเมิน</dt>
                             <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            {% if evaluation.result == 'CAN_FIX' %}bg-green-100 text-green-800
-                            {% elif evaluation.result == 'OUTSOURCE' %}bg-yellow-100 text-yellow-800
-                            {% elif evaluation.result == 'CENTRAL_DEPT' %}bg-blue-100 text-blue-800
-                            {% elif evaluation.result == 'NEED_PARTS' %}bg-purple-100 text-purple-800
-                            {% endif %}">
-                            {{ evaluation.get_result_display }}
-                        </span>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    {% if evaluation.result == 'CAN_FIX' %}bg-green-100 text-green-800
+                                    {% elif evaluation.result == 'OUTSOURCE' %}bg-orange-100 text-orange-800
+                                    {% elif evaluation.result == 'CENTRAL_DEPT' %}bg-blue-100 text-blue-800
+                                    {% elif evaluation.result == 'CENTRAL_DEPT_PARTS' %}bg-indigo-100 text-indigo-800
+                                    {% elif evaluation.result == 'NEED_PARTS' %}bg-amber-100 text-amber-800
+                                    {% endif %}">
+                                    {{ evaluation.get_result_display }}
+                                </span>
                             </dd>
                         </div>
 
