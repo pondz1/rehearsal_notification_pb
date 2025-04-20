@@ -1,0 +1,216 @@
+<!-- templates/purchase/po_create.html -->
+{% extends 'base.html' %}
+
+{% block title %}สร้างใบสั่งซื้อ{% endblock %}
+
+{% block content %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <!-- Header Section -->
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold">สร้างใบสั่งซื้อจากใบขอซื้อ (PR)</h1>
+            <p class="text-gray-600">PR เลขที่: {{ pr.pr_number }}</p>
+        </div>
+
+        <form method="post" id="po-form" class="space-y-6">
+            {% csrf_token %}
+
+            <!-- Vendor Selection -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="{{ form.vendor.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                        {{ form.vendor.label }}
+                    </label>
+                    {{ form.vendor }}
+                    {% if form.vendor.errors %}
+                        <p class="text-red-500 text-xs mt-1">{{ form.vendor.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.expected_delivery.id_for_label }}"
+                           class="block text-sm font-medium text-gray-700">
+                        {{ form.expected_delivery.label }}
+                    </label>
+                    {{ form.expected_delivery }}
+                    {% if form.expected_delivery.errors %}
+                        <p class="text-red-500 text-xs mt-1">{{ form.expected_delivery.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Items from PR -->
+            <div class="mt-8">
+                <h2 class="text-lg font-semibold mb-4">รายการสินค้า</h2>
+                {{ items_formset.management_form }}
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">รายการ</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">จำนวน</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ราคาต่อหน่วย
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ราคารวม</th>
+                        </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                        {% for item_form in items_formset %}
+                            <tr class="hover:bg-gray-50">
+                                <!-- Hidden fields -->
+                                {{ item_form.id }}
+                                {{ item_form.pr_item }}
+                                {{ item_form.part }}
+
+                                <!-- Item Information -->
+                                <td class="px-6 py-4">
+                                    <div class="text-sm text-gray-900">
+                                        {% if item_form.pr_item_object %}
+                                            {{ item_form.pr_item_object.part.name }}
+                                            <div class="text-xs text-gray-500">
+                                                {{ item_form.pr_item_object.part.description|truncatechars:50 }}
+                                            </div>
+                                            <div class="text-xs text-gray-400">
+                                                รหัส: {{ item_form.pr_item_object.part.part_number }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+
+                                <!-- Quantity -->
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center">
+                                        {{ item_form.quantity }}
+                                        {% if item_form.pr_item_object %}
+                                            <span class="ml-2 text-xs text-gray-500">
+                                                (จาก PR: {{ item_form.pr_item_object.quantity }} {{ item_form.pr_item_object.part.unit }})
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    {% if item_form.quantity.errors %}
+                                        <p class="text-red-500 text-xs">{{ item_form.quantity.errors.0 }}</p>
+                                    {% endif %}
+                                </td>
+
+                                <!-- Unit Price -->
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center">
+                                        {{ item_form.unit_price }}
+                                        {% if item_form.pr_item %}
+                                            <span class="ml-2 text-xs text-gray-500">(จาก PR: {{ item_form.pr_item.unit_price }})</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if item_form.unit_price.errors %}
+                                        <p class="text-red-500 text-xs">{{ item_form.unit_price.errors.0 }}</p>
+                                    {% endif %}
+                                </td>
+
+                                <!-- Total -->
+                                <td class="px-6 py-4 item-total">
+                                    <span class="text-sm text-gray-900">0.00</span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                        <tfoot class="bg-gray-50">
+                        <tr>
+                            <td colspan="3" class="px-6 py-4 text-right font-medium">รวมเงิน:</td>
+                            <td class="px-6 py-4" id="subtotal">0.00</td>
+                        </tr>
+                        <tr>
+                            <td colspan="3" class="px-6 py-4 text-right font-medium">
+                                ภาษีมูลค่าเพิ่ม ({{ form.vat_percent.value }}%):
+                            </td>
+                            <td class="px-6 py-4" id="vat-amount">0.00</td>
+                        </tr>
+                        <tr>
+                            <td colspan="3" class="px-6 py-4 text-right font-medium">รวมทั้งสิ้น:</td>
+                            <td class="px-6 py-4 font-bold" id="grand-total">0.00</td>
+                        </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Additional Information -->
+            <div class="mt-6">
+                <label for="{{ form.notes.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                    {{ form.notes.label }}
+                </label>
+                {{ form.notes }}
+                {% if form.notes.errors %}
+                    <p class="text-red-500 text-xs mt-1">{{ form.notes.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Submit Buttons -->
+            <div class="flex justify-end space-x-4 mt-6">
+                <a href="{% url 'maintenance:pr_list' %}"
+                   class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded">
+                    ยกเลิก
+                </a>
+                <button type="submit"
+                        name="action"
+                        value="draft"
+                        class="bg-blue-500 hover:bg-blue-700 text-white px-6 py-2 rounded">
+                    บันทึกแบบร่าง
+                </button>
+                <button type="submit"
+                        name="action"
+                        value="issue"
+                        class="bg-green-500 hover:bg-green-700 text-white px-6 py-2 rounded">
+                    ออกใบสั่งซื้อ
+                </button>
+            </div>
+        </form>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const vatPercent = {{ form.vat_percent.value|default:7 }};
+            const formatter = new Intl.NumberFormat('th-TH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+
+            function updateTotals() {
+                let subtotal = 0;
+
+                // Calculate each item total and subtotal
+                document.querySelectorAll('tr').forEach(row => {
+                    const quantityInput = row.querySelector('input[name$="-quantity"]');
+                    const priceInput = row.querySelector('input[name$="-unit_price"]');
+                    const totalCell = row.querySelector('.item-total span');
+
+                    if (quantityInput && priceInput && totalCell) {
+                        const quantity = parseFloat(quantityInput.value) || 0;
+                        const price = parseFloat(priceInput.value) || 0;
+                        const total = quantity * price;
+
+                        totalCell.textContent = formatter.format(total);
+                        subtotal += total;
+                    }
+                });
+
+                // Update totals
+                const vatAmount = subtotal * (vatPercent / 100);
+                const grandTotal = subtotal + vatAmount;
+
+                document.getElementById('subtotal').textContent = formatter.format(subtotal);
+                document.getElementById('vat-amount').textContent = formatter.format(vatAmount);
+                document.getElementById('grand-total').textContent = formatter.format(grandTotal);
+            }
+
+            // Add event listeners
+            document.querySelectorAll('input[name$="-quantity"], input[name$="-unit_price"]')
+                .forEach(input => {
+                    input.addEventListener('input', updateTotals);
+                });
+
+            // Initial calculation
+            updateTotals();
+        });
+
+    </script>
+{% endblock %}

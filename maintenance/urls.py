@@ -48,5 +48,12 @@ urlpatterns = [
     path('pr/<int:pk>/reject/', reject_pr, name='pr_reject'),
     path('pr/<int:pk>/edit/', PurchaseRequestUpdateView.as_view(), name='pr_edit'),
 
-    path('api/get-evaluations/<int:maintenance_request_id>/',get_evaluations, name='get_evaluations'),
+    path('api/get-evaluations/<int:maintenance_request_id>/', get_evaluations, name='get_evaluations'),
+
+    path('po/create/<int:pr_id>/', PurchaseOrderCreateView.as_view(), name='po_create'),
+    path('po/', PurchaseOrderListView.as_view(), name='po_list'),
+    path('po/<int:pk>/', PurchaseOrderDetailView.as_view(), name='po_detail'),
+    path('po/<int:pk>/issue/', PurchaseOrderIssueView.as_view(), name='po_issue'),
+    path('po/<int:pk>/receive/', PurchaseOrderReceiveView.as_view(), name='po_receive'),
+
 ]

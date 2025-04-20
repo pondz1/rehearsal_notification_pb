@@ -1,0 +1,159 @@
+<!-- templates/purchase/po_detail.html -->
+{% extends 'base.html' %}
+
+{% block title %}รายละเอียดใบสั่งซื้อ - {{ po.po_number }}{% endblock %}
+
+{% block content %}
+    <div class="container mx-auto px-4 py-6">
+        <!-- Header Section -->
+        <div class="mb-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">ใบสั่งซื้อเลขที่: {{ po.po_number }}</h1>
+                <p class="text-gray-600">สถานะ: {{ po.get_status_display }}</p>
+            </div>
+            <div class="space-x-2">
+                <button onclick="window.print()"
+                        class="bg-gray-500 hover:bg-gray-700 text-white px-4 py-2 rounded">
+                    พิมพ์
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <!-- PO Information -->
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h2 class="text-lg font-semibold mb-4">ข้อมูลใบสั่งซื้อ</h2>
+                    <dl class="grid grid-cols-2 gap-4">
+                        <dt class="text-gray-600">เลขที่ PR:</dt>
+                        <dd>{{ po.purchase_request.pr_number }}</dd>
+                        <dt class="text-gray-600">ผู้ขาย:</dt>
+                        <dd>{{ po.vendor.name }}</dd>
+                        <dt class="text-gray-600">วันที่สร้าง:</dt>
+                        <dd>{{ po.created_at|date:"d/m/Y H:i" }}</dd>
+                        <dt class="text-gray-600">กำหนดส่ง:</dt>
+                        <dd>{{ po.expected_delivery|date:"d/m/Y" }}</dd>
+                    </dl>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold mb-4">ข้อมูลผู้ขาย</h2>
+                    <dl class="grid grid-cols-2 gap-4">
+                        <dt class="text-gray-600">ผู้ติดต่อ:</dt>
+                        <dd>{{ po.vendor.contact_name }}</dd>
+                        <dt class="text-gray-600">โทรศัพท์:</dt>
+                        <dd>{{ po.vendor.phone }}</dd>
+                        <dt class="text-gray-600">อีเมล:</dt>
+                        <dd>{{ po.vendor.email }}</dd>
+                        <dt class="text-gray-600">ที่อยู่:</dt>
+                        <dd>{{ po.vendor.address }}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Items Table -->
+            <div class="px-6 py-4">
+                <h2 class="text-lg font-semibold mb-4">รายการสินค้า</h2>
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">รายการ</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">จำนวน</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ราคาต่อหน่วย</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">รวม</th>
+                    </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                    {% for item in po.items.all %}
+                        <tr>
+                            <td class="px-6 py-4">
+                                <div class="text-sm text-gray-900">{{ item.part.name }}</div>
+                                <div class="text-xs text-gray-500">{{ item.part.description }}</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm text-gray-900">
+                                    {{ item.quantity }} {{ item.part.unit }}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm text-gray-900">
+                                    ฿{{ item.unit_price|floatformat:2 }}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm text-gray-900">
+                                    ฿{{ item.total_amount|floatformat:2 }}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                    <tfoot class="bg-gray-50">
+                    <tr>
+                        <td colspan="3" class="px-6 py-4 text-right font-medium">รวมเงิน:</td>
+                        <td class="px-6 py-4">฿{{ po.total_amount|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" class="px-6 py-4 text-right font-medium">
+                            ภาษีมูลค่าเพิ่ม ({{ po.vat_percent }}%):
+                        </td>
+                        <td class="px-6 py-4">฿{{ po.vat_amount|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" class="px-6 py-4 text-right font-medium">รวมทั้งสิ้น:</td>
+                        <td class="px-6 py-4 font-bold">฿{{ po.grand_total|floatformat:2 }}</td>
+                    </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Notes -->
+            {% if po.notes %}
+                <div class="px-6 py-4 border-t">
+                    <h2 class="text-lg font-semibold mb-2">หมายเหตุ</h2>
+                    <p class="text-gray-700">{{ po.notes }}</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="mt-6 flex justify-end space-x-4">
+            {% if po.status == 'DRAFT' and perms.maintenance.change_purchaseorder %}
+                <form method="post" action="{% url 'maintenance:po_issue' po.id %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="bg-green-500 hover:bg-green-700 text-white px-6 py-2 rounded">
+                        ออกใบสั่งซื้อ
+                    </button>
+                </form>
+            {% endif %}
+
+            {% if po.status == 'ISSUED' and perms.maintenance.receive_purchaseorder %}
+                <a href="{% url 'maintenance:po_receive' po.id %}"
+                   class="bg-blue-500 hover:bg-blue-700 text-white px-6 py-2 rounded">
+                    บันทึกรับสินค้า
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Print Styles -->
+    <style media="print">
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+
+        .container {
+            max-width: 100%;
+        }
+
+        .no-print {
+            display: none;
+        }
+
+        body {
+            font-size: 12pt;
+        }
+    </style>
+{% endblock %}

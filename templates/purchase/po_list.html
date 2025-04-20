@@ -1,0 +1,163 @@
+<!-- templates/purchase/po_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}รายการใบสั่งซื้อ{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <!-- Header Section -->
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold">รายการใบสั่งซื้อ</h1>
+        </div>
+        {% if perms.maintenance.add_purchaseorder %}
+        <div class="flex space-x-2">
+            <a href="{% url 'maintenance:pr_list' %}"
+               class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                สร้างใบสั่งซื้อใหม่
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-lg shadow mb-6 p-4">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">เลขที่ PO</label>
+                <input type="text" name="po_number" value="{{ request.GET.po_number }}"
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">สถานะ</label>
+                <select name="status"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2">
+                    <option value="">ทั้งหมด</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">ผู้ขาย</label>
+                <select name="vendor"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2">
+                    <option value="">ทั้งหมด</option>
+                    {% for vendor in vendors %}
+                    <option value="{{ vendor.id }}" {% if request.GET.vendor == vendor.id|stringformat:"i" %}selected{% endif %}>
+                        {{ vendor.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button type="submit"
+                        class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded">
+                    ค้นหา
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- PO List -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        เลขที่ PO
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        ผู้ขาย
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        มูลค่ารวม
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        สถานะ
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        วันที่ส่งของ
+                    </th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        การดำเนินการ
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for po in purchase_orders %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ po.po_number }}</div>
+                        <div class="text-xs text-gray-500">PR: {{ po.purchase_request.pr_number }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ po.vendor.name }}</div>
+                        <div class="text-xs text-gray-500">{{ po.vendor.contact_name }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">฿{{ po.total_amount|floatformat:2 }}</div>
+                        <div class="text-xs text-gray-500">VAT: ฿{{ po.vat_amount|floatformat:2 }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                   {% if po.status == 'DRAFT' %}bg-gray-100 text-gray-800
+                                   {% elif po.status == 'ISSUED' %}bg-blue-100 text-blue-800
+                                   {% elif po.status == 'RECEIVED' %}bg-green-100 text-green-800
+                                   {% elif po.status == 'CANCELLED' %}bg-red-100 text-red-800
+                                   {% endif %}">
+                            {{ po.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">
+                            {{ po.expected_delivery|date:"d/m/Y" }}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                        <a href="{% url 'maintenance:po_detail' po.id %}"
+                           class="text-indigo-600 hover:text-indigo-900">
+                            ดูรายละเอียด
+                        </a>
+                        {% if po.status == 'DRAFT' and perms.maintenance.change_purchaseorder %}
+                        <a href="{% url 'maintenance:po_edit' po.id %}"
+                           class="text-blue-600 hover:text-blue-900">
+                            แก้ไข
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                        ไม่พบรายการใบสั่งซื้อ
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+        <div class="flex-1 flex justify-between sm:hidden">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}"
+               class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Previous
+            </a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}"
+               class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Next
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

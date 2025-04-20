@@ -4,7 +4,8 @@ from django import forms
 from django.contrib.auth.models import User
 from django.db.models import Q
 
-from .models import MaintenanceRequest, Comment, UserProfile, PurchaseRequest, PRItem, RepairEvaluation
+from .models import MaintenanceRequest, Comment, UserProfile, PurchaseRequest, PRItem, RepairEvaluation, PurchaseOrder, \
+    POItem, GoodsReceiptItem, GoodsReceipt
 
 
 class MaintenanceRequestForm(forms.ModelForm):
@@ -171,4 +172,179 @@ PRItemFormSet = forms.inlineformset_factory(
     form=PRItemForm,
     extra=1,
     can_delete=True
+)
+
+
+class PurchaseOrderForm(forms.ModelForm):
+    vat_percent = forms.DecimalField(
+        label='VAT %',
+        initial=7.00,
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+    )
+
+    class Meta:
+        model = PurchaseOrder
+        fields = ['vendor', 'expected_delivery', 'vat_percent', 'notes']
+        widgets = {
+            'vendor': forms.Select(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2'
+            }),
+            'expected_delivery': forms.DateInput(attrs={
+                'type': 'date',
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm'
+            }),
+            'vat_percent': forms.HiddenInput(),
+            'notes': forms.Textarea(attrs={
+                'rows': 3,
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm'
+            })
+        }
+
+
+# forms.py
+class POItemForm(forms.ModelForm):
+    class Meta:
+        model = POItem
+        fields = ['pr_item', 'part', 'quantity', 'unit_price']
+        widgets = {
+            'pr_item': forms.HiddenInput(),  # เปลี่ยนเป็น HiddenInput
+            'part': forms.HiddenInput(),  # เปลี่ยนเป็น HiddenInput
+            'quantity': forms.NumberInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm'
+            }),
+            'unit_price': forms.NumberInput(attrs={
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm'
+            })
+        }
+
+
+class BasePoItemFormSet(forms.BaseInlineFormSet):
+    def __init__(self, *args, pr_items=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pr_items = pr_items
+
+        if pr_items:
+            # กำหนดจำนวน forms ตามจำนวน pr_items
+            self.extra = len(pr_items)
+            for i, pr_item in enumerate(pr_items):
+                if i < len(self.forms):
+                    form = self.forms[i]
+                    # กำหนดค่าเริ่มต้น
+                    form.initial = {
+                        'pr_item': pr_item.id,
+                        'part': pr_item.part.id,
+                        'quantity': pr_item.quantity,
+                        'unit_price': pr_item.unit_price
+                    }
+                    # เก็บ pr_item object ไว้ใช้แสดงผล
+                    form.pr_item_object = pr_item
+
+
+POItemFormSet = forms.inlineformset_factory(
+    PurchaseOrder,
+    POItem,
+    form=POItemForm,
+    formset=BasePoItemFormSet,
+    extra=0,  # ตั้งเป็น 0 เพราะจะกำหนดจำนวนตาม pr_items
+    can_delete=False
+)
+
+
+class PurchaseOrderIssueForm(forms.ModelForm):
+    notes = forms.CharField(
+        label='หมายเหตุ',
+        widget=forms.Textarea(attrs={'rows': 3, 'class': 'px-3 py-2'}),
+        required=False
+    )
+    confirm_issue = forms.BooleanField(
+        label='ยืนยันการออกใบสั่งซื้อ',
+        required=True,
+        help_text='กรุณาตรวจสอบข้อมูลให้ถูกต้องก่อนยืนยัน'
+    )
+
+    class Meta:
+        model = PurchaseOrder
+        fields = ['payment_terms', 'expected_delivery', 'notes', 'confirm_issue']
+        widgets = {
+            'expected_delivery': forms.DateInput(attrs={'type': 'date',
+                                                        'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not cleaned_data.get('confirm_issue'):
+            raise forms.ValidationError("กรุณายืนยันการออกใบสั่งซื้อ")
+        return cleaned_data
+
+
+# forms.py
+class GoodsReceiptForm(forms.ModelForm):
+    class Meta:
+        model = GoodsReceipt
+        fields = ['delivery_note', 'invoice_number', 'received_date', 'notes']
+        widgets = {
+            'received_date': forms.DateInput(attrs={'type': 'date',
+                                                    'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm'}),
+            'notes': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        self.po = kwargs.pop('po', None)
+        super().__init__(*args, **kwargs)
+
+
+class GoodsReceiptItemForm(forms.ModelForm):
+    remaining_quantity = forms.IntegerField(
+        label='จำนวนคงเหลือ',
+        required=False,
+        disabled=True
+    )
+
+    class Meta:
+        model = GoodsReceiptItem
+        fields = ['quantity', 'notes']
+
+    def __init__(self, *args, **kwargs):
+        self.po_item = kwargs.pop('po_item', None)
+        super().__init__(*args, **kwargs)
+
+        if self.po_item:
+            self.fields['remaining_quantity'].initial = self.po_item.remaining_quantity
+            self.fields['quantity'].widget.attrs.update({
+                'max': self.po_item.remaining_quantity,
+                'min': 0
+            })
+
+    def clean_quantity(self):
+        quantity = self.cleaned_data.get('quantity')
+        if quantity > self.po_item.remaining_quantity:
+            raise forms.ValidationError(
+                f"จำนวนที่รับไม่สามารถมากกว่าจำนวนคงเหลือ ({self.po_item.remaining_quantity})"
+            )
+        return quantity
+
+
+class BaseGoodsReceiptItemFormSet(forms.BaseInlineFormSet):
+    def __init__(self, *args, po_items=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if po_items:
+            self.po_items = po_items
+            for form, po_item in zip(self.forms, po_items):
+                form.po_item = po_item
+
+
+GoodsReceiptItemFormSet = forms.inlineformset_factory(
+    GoodsReceipt,
+    GoodsReceiptItem,
+    form=GoodsReceiptItemForm,
+    formset=BaseGoodsReceiptItemFormSet,
+    extra=0,
+    can_delete=False
 )
