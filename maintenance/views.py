@@ -78,6 +78,7 @@ class MaintenanceListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         return MaintenanceRequest.objects.filter(requestor=self.request.user)
 
+
 class MaintenanceJobListView(LoginRequiredMixin, ListView):
     model = MaintenanceRequest
     template_name = 'maintenance/job_list.html'
@@ -87,6 +88,7 @@ class MaintenanceJobListView(LoginRequiredMixin, ListView):
         assigned_jobs = MaintenanceAssignment.objects.filter(technician=self.request.user).values_list(
             'maintenance_request_id', flat=True)
         return MaintenanceRequest.objects.filter(id__in=assigned_jobs)
+
 
 class MaintenanceCreateView(LoginRequiredMixin, CreateView):
     model = MaintenanceRequest
@@ -124,10 +126,10 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
         base_query = MaintenanceRequest.objects.all()  # เริ่มต้นด้วย all()
 
         # ถ้าไม่ใช่ staff จะกรองเฉพาะรายการที่เกี่ยวข้อง
-        if not self.request.user.is_staff:
+        if not self.request.user.is_staff and not is_executives_check(self.request.user):
             base_query = base_query.filter(
                 Q(requestor=self.request.user) |  # ผู้แจ้งซ่อม
-                Q(maintenanceassignment__technician=self.request.user)  # ช่างที่ได้รับมอบหมาย
+                Q(maintenanceassignment__technician=self.request.user) # ช่างที่ได้รับมอบหมาย
             )
 
         # เพิ่ม prefetch_related สำหรับข้อมูลที่เกี่ยวข้อง
@@ -146,13 +148,15 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
         assignment = maintenance.maintenanceassignment_set.first()
         status_allows_edit = maintenance.status not in ['COMPLETED', 'REJECTED']
         status_allows_approve = maintenance.status in ['EVALUATED']
+        can_edit = (self.request.user.is_staff or maintenance.requestor == self.request.user) and status_allows_edit
 
         context.update({
             'comment_form': CommentForm(),
             'is_requestor': maintenance.requestor == self.request.user,
             'is_technician': assignment and assignment.technician == self.request.user,
-            'can_edit': (self.request.user.is_staff or maintenance.requestor == self.request.user) and status_allows_edit,
-            'can_approve': self.request.user.has_perm('maintenance.approve_maintenancerequest') and status_allows_approve,
+            'can_edit': can_edit,
+            'can_approve': self.request.user.has_perm(
+                'maintenance.approve_maintenancerequest') and status_allows_approve,
             'before_images': maintenance.images.filter(is_before_image=True),
             'after_images': maintenance.images.filter(is_before_image=False),
             'current_assignment': assignment,
@@ -372,8 +376,9 @@ class MaintenanceDetailView(LoginRequiredMixin, DetailView):
 def is_staff_check(user):
     return user.is_staff
 
+
 def is_executives_check(user):
-    return user.groups.filter(name='Executives').exists
+    return user.groups.filter(name='Executives').exists()
 
 
 @method_decorator(user_passes_test(is_staff_check), name='dispatch')
@@ -387,6 +392,7 @@ class MaintenanceManageView(ListView):
         context['status_choices'] = MaintenanceRequest.STATUS_CHOICES
         context['technicians'] = User.objects.filter(groups__name='Technicians')
         return context
+
 
 @method_decorator(user_passes_test(is_executives_check), name='dispatch')
 class MaintenanceExecutivesManageView(ListView):
@@ -424,6 +430,7 @@ def update_status(request, pk):
             return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
 
 class ProfileView(LoginRequiredMixin, UpdateView):
     template_name = 'maintenance/profile.html'
@@ -773,6 +780,7 @@ def assign_maintenance_request(request, request_id):
             'error': f'เกิดข้อผิดพลาด: {str(e)}'
         }, status=500)
 
+
 @login_required
 @require_GET
 def get_maintenance_evaluation(request, request_id):
@@ -797,6 +805,7 @@ def get_maintenance_evaluation(request, request_id):
         'result': evaluation.result,
         'result_display': evaluation.get_result_display(),
     })
+
 
 @login_required
 @permission_required('maintenance.can_approve_maintenance')
@@ -945,14 +954,8 @@ def approve_parts(request, request_id):
 
 
 def home(request):
-    context = {}
-
-    if request.user.is_authenticated:
-        # ดึงคำขอล่าสุด 5 รายการสำหรับผู้ใช้ที่ล็อกอินแล้ว
-        recent_requests = MaintenanceRequest.objects.filter(
-            requestor=request.user
-        ).order_by('-created_at')[:5]
-
-        context['recent_requests'] = recent_requests
-
-    return render(request, 'home.html', context)
+    if is_executives_check(request.user):
+        return redirect(to='maintenance:maintenance_executives')
+    elif request.user.is_staff:
+        return redirect(to='maintenance:maintenance_manage')
+    return redirect(to='maintenance:maintenance_list')

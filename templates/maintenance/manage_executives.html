@@ -7,7 +7,7 @@
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold">จัดการรายการแจ้งซ่อม</h1>
             <div class="flex gap-2">
-                <select id="statusFilter" class="rounded-md border-gray-300">
+                <select id="statusFilter" class="rounded-md border-gray-300 p-2">
                     <option value="">ทั้งหมด</option>
                     <option value="PENDING">รอดำเนินการ</option>
                     <option value="ASSIGNED">มอบหมายแล้ว</option>
@@ -22,7 +22,7 @@
                     <option value="REJECTED">ยกเลิก</option>
                 </select>
 
-                <select id="priorityFilter" class="rounded-md border-gray-300">
+                <select id="priorityFilter" class="rounded-md border-gray-300 p-2">
                     <option value="">ทุกระดับความสำคัญ</option>
                     <option value="URGENT">ฉุกเฉิน</option>
                     <option value="HIGH">สูง</option>
@@ -116,11 +116,7 @@
                             <div class="flex gap-2">
                                 <a href="{% url 'maintenance:maintenance_detail' request.id %}"
                                    class="text-blue-600 hover:text-blue-900">ดูรายละเอียด</a>
-                                {% if request.status == 'PENDING' %}
-                                    <button onclick="assignRequest({{ request.id }})"
-                                            class="text-indigo-600 hover:text-indigo-900">มอบหมาย
-                                    </button>
-                                {% elif request.status == 'EVALUATED' %}
+                                {% if request.status == 'EVALUATED' %}
                                     <button onclick="approveEvaluation({{ request.id }})"
                                             class="text-green-600 hover:text-green-900">อนุมัติการซ่อม
                                     </button>
@@ -205,42 +201,6 @@
                             <button type="submit"
                                     class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
                                 ยืนยัน
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- Modal for Assignment -->
-    <div id="assignmentModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">มอบหมายงานซ่อม</h3>
-                <div class="mt-2 px-7 py-3">
-                    <form id="assignmentForm">
-                        <div class="mb-4">
-                            <label class="block text-gray-700 text-sm font-bold mb-2">มอบหมายช่าง</label>
-                            <select id="assignTechnicianSelect"
-                                    class="shadow border rounded w-full py-2 px-3 text-gray-700">
-                                {% for tech in technicians %}
-                                    <option value="{{ tech.id }}">{{ tech.get_full_name|default:tech.username }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="mb-4">
-                            <label class="block text-gray-700 text-sm font-bold mb-2">ข้อความถึงช่าง</label>
-                            <textarea id="assignmentNote" class="shadow border rounded w-full py-2 px-3 text-gray-700"
-                                      rows="3" placeholder="คำแนะนำหรือคำอธิบายเพิ่มเติม"></textarea>
-                        </div>
-                        <div class="flex justify-end gap-2">
-                            <button type="button" onclick="closeAssignmentModal()"
-                                    class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
-                                ยกเลิก
-                            </button>
-                            <button type="submit"
-                                    class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
-                                มอบหมาย
                             </button>
                         </div>
                     </form>

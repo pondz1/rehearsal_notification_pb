@@ -21,11 +21,11 @@ class MaintenanceRequestForm(forms.ModelForm):
                 'placeholder': 'ระบุสถานที่'
             }),
             'priority': forms.Select(attrs={
-                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500'
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2'
             }),
             'description': forms.Textarea(attrs={
                 'rows': 4,
-                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500',
+                'class': 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3',
                 'placeholder': 'รายละเอียดการแจ้งซ่อม'
             }),
         }

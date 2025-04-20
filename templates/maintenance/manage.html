@@ -7,7 +7,7 @@
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold">จัดการรายการแจ้งซ่อม</h1>
             <div class="flex gap-2">
-                <select id="statusFilter" class="rounded-md border-gray-300">
+                <select id="statusFilter" class="rounded-md border-gray-300 p-2">
                     <option value="">ทั้งหมด</option>
                     <option value="PENDING">รอดำเนินการ</option>
                     <option value="ASSIGNED">มอบหมายแล้ว</option>
@@ -22,7 +22,7 @@
                     <option value="REJECTED">ยกเลิก</option>
                 </select>
 
-                <select id="priorityFilter" class="rounded-md border-gray-300">
+                <select id="priorityFilter" class="rounded-md border-gray-300 p-2">
                     <option value="">ทุกระดับความสำคัญ</option>
                     <option value="URGENT">ฉุกเฉิน</option>
                     <option value="HIGH">สูง</option>
@@ -121,13 +121,13 @@
                                             class="text-indigo-600 hover:text-indigo-900">มอบหมาย
                                     </button>
                                 {% elif request.status == 'EVALUATED' %}
-                                    <button onclick="approveEvaluation({{ request.id }})"
-                                            class="text-green-600 hover:text-green-900">อนุมัติการซ่อม
-                                    </button>
+{#                                    <button onclick="approveEvaluation({{ request.id }})"#}
+{#                                            class="text-green-600 hover:text-green-900">อนุมัติการซ่อม#}
+{#                                    </button>#}
                                 {% elif request.status == 'NEED_PARTS' %}
-                                    <button onclick="approveParts({{ request.id }})"
-                                            class="text-purple-600 hover:text-purple-900">อนุมัติจัดซื้อ
-                                    </button>
+{#                                    <button onclick="approveParts({{ request.id }})"#}
+{#                                            class="text-purple-600 hover:text-purple-900">อนุมัติจัดซื้อ#}
+{#                                    </button>#}
                                 {% endif %}
                             </div>
                         </td>
