@@ -6,10 +6,12 @@
     <div class="bg-white rounded-lg shadow p-6">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold">รายการใบขอซื้อ (PR)</h1>
-            <a href="{% url 'maintenance:pr_create' %}"
-               class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                สร้างใบขอซื้อใหม่
-            </a>
+            {% if can_send_approve_pr %}
+                <a href="{% url 'maintenance:pr_create' %}"
+                   class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    สร้างใบขอซื้อใหม่
+                </a>
+            {% endif %}
         </div>
 
         <div class="overflow-x-auto">
@@ -68,6 +70,11 @@
                                         class="text-indigo-600 hover:text-indigo-900">ส่งขออนุมัติ
                                 </button>
                             {% endif %}
+                            {% if pr.status == 'APPROVED' and can_send_approve_pr %}
+                                <a href="{% url 'maintenance:po_create' pr_id=pr.id %}"
+                                        class="text-indigo-600 hover:text-indigo-900">สร้าง PO
+                                </a>
+                            {% endif %}
 
                         </td>
                     </tr>
@@ -90,7 +97,7 @@
                 <h3 class="text-lg leading-6 font-medium text-gray-900">ส่งอนุมัติ</h3>
                 <div class="mt-2 px-7 py-3">
                     <form id="sendPendingForm" method="POST">
-                         {% csrf_token %}
+                        {% csrf_token %}
                         <input type="hidden" name="action" value="update_status">
                         <input type="hidden" name="status" value="PENDING">
                         <input type="hidden" name="id" value="0" id="pr-id">

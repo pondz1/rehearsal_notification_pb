@@ -1274,6 +1274,7 @@ class PurchaseOrderCreateView(LoginRequiredMixin, CreateView):
             else:  # draft
                 self.object.status = 'DRAFT'
 
+            self.object.purchase_request.status = 'CONVERTED'
             # Save PO
             self.object.save()
 
@@ -1282,16 +1283,19 @@ class PurchaseOrderCreateView(LoginRequiredMixin, CreateView):
             items_formset.save()
 
             # Send notifications
-            self._send_notifications(action)
+            self._send_notifications(_action)  # Changed action to _action
 
             messages.success(
                 self.request,
-                'สร้างใบสั่งซื้อสำเร็จ' if action == 'issue' else 'บันทึกแบบร่างสำเร็จ'
+                'สร้างใบสั่งซื้อสำเร็จ' if _action == 'issue' else 'บันทึกแบบร่างสำเร็จ'  # Changed action to _action
             )
 
             return redirect('maintenance:po_detail', pk=self.object.pk)
         else:
             messages.error(self.request, 'กรุณาตรวจสอบข้อมูลให้ถูกต้อง')
+            for i, form_errors in enumerate(items_formset.errors):
+                if form_errors:
+                    messages.error(self.request, f"Form {i + 1} errors: {form_errors}")
             return self.form_invalid(form)
 
     def form_invalid(self, form):
@@ -1302,8 +1306,8 @@ class PurchaseOrderCreateView(LoginRequiredMixin, CreateView):
         print("Formset errors:", items_formset.errors)
         return super().form_invalid(form)
 
-    def _send_notifications(self, action):
-        if action == 'issue':
+    def _send_notifications(self, _action):
+        if _action == 'issue':
             # แจ้งเตือนผู้ขาย (ถ้ามีอีเมล)
             if self.object.vendor.email:
                 # TODO: ส่งอีเมลแจ้งผู้ขาย

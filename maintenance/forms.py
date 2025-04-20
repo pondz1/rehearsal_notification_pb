@@ -226,19 +226,18 @@ class BasePoItemFormSet(forms.BaseInlineFormSet):
         self.pr_items = pr_items
 
         if pr_items:
-            # กำหนดจำนวน forms ตามจำนวน pr_items
             self.extra = len(pr_items)
             for i, pr_item in enumerate(pr_items):
                 if i < len(self.forms):
                     form = self.forms[i]
-                    # กำหนดค่าเริ่มต้น
+                    # Set initial values
                     form.initial = {
                         'pr_item': pr_item.id,
                         'part': pr_item.part.id,
                         'quantity': pr_item.quantity,
                         'unit_price': pr_item.unit_price
                     }
-                    # เก็บ pr_item object ไว้ใช้แสดงผล
+                    # Store PR item for display
                     form.pr_item_object = pr_item
 
 

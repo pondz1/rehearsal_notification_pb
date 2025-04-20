@@ -58,8 +58,11 @@
                             <tr class="hover:bg-gray-50">
                                 <!-- Hidden fields -->
                                 {{ item_form.id }}
-                                {{ item_form.pr_item }}
-                                {{ item_form.part }}
+                                <input type="hidden" name="{{ item_form.pr_item.html_name }}"
+                                       value="{{ item_form.pr_item_object.id }}">
+                                <input type="hidden" name="{{ item_form.part.html_name }}"
+                                       value="{{ item_form.pr_item_object.part.id }}">
+
 
                                 <!-- Item Information -->
                                 <td class="px-6 py-4">
