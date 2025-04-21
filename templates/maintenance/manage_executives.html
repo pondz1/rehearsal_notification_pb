@@ -190,47 +190,6 @@
     <script>
         let currentRequestId = null;
 
-        function assignRequest(requestId) {
-            currentRequestId = requestId;
-            document.getElementById('assignmentModal').classList.remove('hidden');
-        }
-
-        function closeAssignmentModal() {
-            document.getElementById('assignmentModal').classList.add('hidden');
-            currentRequestId = null;
-        }
-
-        document.getElementById('assignmentForm').addEventListener('submit', function (e) {
-            e.preventDefault();
-
-            const technicianId = document.getElementById('assignTechnicianSelect').value;
-            const note = document.getElementById('assignmentNote').value;
-
-            fetch(`/api/maintenance/${currentRequestId}/assign/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({
-                    technician_id: technicianId,
-                    note: note
-                })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showNotification('มอบหมายงานซ่อมสำเร็จ', 'success');
-                        location.reload();
-                    } else {
-                        showNotification('เกิดข้อผิดพลาด: ' + (data.error || 'ไม่สามารถมอบหมายงานได้'), 'error');
-                    }
-                });
-
-            closeAssignmentModal();
-        });
-
-
         document.addEventListener('DOMContentLoaded', function () {
             // Status change handler
             document.querySelectorAll('.status-select').forEach(select => {

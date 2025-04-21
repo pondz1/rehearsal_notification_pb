@@ -796,7 +796,6 @@ def get_maintenance_evaluation(request, request_id):
 
 
 @login_required
-@permission_required('maintenance.can_approve_maintenance')
 @require_POST
 def approve_repair(request, request_id):
     """API endpoint for approving a repair after evaluation"""
