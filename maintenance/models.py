@@ -454,7 +454,7 @@ class PurchaseOrder(models.Model):
         verbose_name_plural = "ใบสั่งซื้อ"
         permissions = [
             ("issue_po", "Can issue purchase orders"),
-            ("receive_po", "Can receive goods for purchase orders"),
+            ("receive_purchaseorder", "Can receive goods for purchase orders"),
         ]
 
     def __str__(self):
