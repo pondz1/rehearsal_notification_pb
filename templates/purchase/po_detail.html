@@ -12,10 +12,13 @@
                 <p class="text-gray-600">สถานะ: {{ po.get_status_display }}</p>
             </div>
             <div class="space-x-2">
-                <button onclick="window.print()"
-                        class="bg-gray-500 hover:bg-gray-700 text-white px-4 py-2 rounded">
+                <a href="{% url 'maintenance:po_print' po.id %}" target="_blank"
+                        class="bg-gray-500 hover:bg-gray-700 text-white px-4 py-2 rounded no-underline inline-block flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
                     พิมพ์
-                </button>
+                </a>
             </div>
         </div>
 

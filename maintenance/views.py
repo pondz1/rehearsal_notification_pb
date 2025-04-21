@@ -1023,6 +1023,32 @@ class PurchaseRequestListView(LoginRequiredMixin, ListView):
         return context
 
 
+class PurchaseOrderPrintView(LoginRequiredMixin, DetailView):
+    model = PurchaseOrder
+    template_name = 'purchase/po_print.html'
+    context_object_name = 'po'
+
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            'vendor', 'purchase_request', 'created_by'
+        ).prefetch_related('items__part')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        po = self.get_object()
+        items = po.items.all().select_related('part')
+        
+        context.update({
+            'items': items,
+            'total_amount': sum(item.total_price for item in items),
+            'company_name': 'บริษัท ตัวอย่าง จำกัด',  # You may want to get this from settings
+            'company_address': '123 ถนนตัวอย่าง แขวงตัวอย่าง เขตตัวอย่าง กรุงเทพฯ 10XXX',
+            'company_phone': '02-XXX-XXXX',
+            'company_tax_id': '0-1234-56789-00-0',
+        })
+        return context
+
+
 class PurchaseRequestCreateView(LoginRequiredMixin, CreateView):
     model = PurchaseRequest
     form_class = PurchaseRequestForm

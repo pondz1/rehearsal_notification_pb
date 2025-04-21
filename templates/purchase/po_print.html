@@ -1,0 +1,194 @@
+<!-- templates/purchase/po_print.html -->
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ใบสั่งซื้อ - {{ po.po_number }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 1.5cm;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                background-color: #fff !important;
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .print-container {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0.5cm !important;
+                box-shadow: none !important;
+            }
+            .page-break {
+                page-break-after: always;
+            }
+            table {
+                page-break-inside: avoid;
+            }
+            tr {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <button onclick="window.print()" class="fixed top-4 right-4 bg-gray-600 hover:bg-gray-800 text-white px-4 py-2 rounded-md shadow no-print">
+        พิมพ์
+    </button>
+    
+    <div class="max-w-[21cm] mx-auto bg-white p-8 shadow-sm my-8 print-container">
+        <!-- Header -->
+        <div class="text-center border-b border-gray-200 pb-6 mb-6">
+            <h1 class="text-2xl font-bold mb-1">บริษัท ตัวอย่าง จำกัด</h1>
+            <p class="text-xl">ใบสั่งซื้อ (Purchase Order)</p>
+        </div>
+        
+        <!-- PO and Vendor Information -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <!-- Left column: PO Information -->
+            <div>
+                <h2 class="text-lg font-semibold mb-4 border-b border-gray-200 pb-2">ข้อมูลใบสั่งซื้อ</h2>
+                <table class="w-full">
+                    <tr>
+                        <td class="py-1 text-gray-600 font-medium w-[40%]">เลขที่ใบสั่งซื้อ:</td>
+                        <td class="py-1">{{ po.po_number }}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1 text-gray-600 font-medium">เลขที่ PR:</td>
+                        <td class="py-1">{{ po.purchase_request.pr_number }}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1 text-gray-600 font-medium">วันที่สร้าง:</td>
+                        <td class="py-1">{{ po.created_at|date:"d/m/Y" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1 text-gray-600 font-medium">กำหนดส่ง:</td>
+                        <td class="py-1">{{ po.expected_delivery|date:"d/m/Y" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1 text-gray-600 font-medium">สถานะ:</td>
+                        <td class="py-1">{{ po.get_status_display }}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <!-- Right column: Vendor Information -->
+            <div>
+                <h2 class="text-lg font-semibold mb-4 border-b border-gray-200 pb-2">ข้อมูลผู้ขาย</h2>
+                <table class="w-full">
+                    <tr>
+                        <td class="py-1 text-gray-600 font-medium w-[40%]">บริษัท:</td>
+                        <td class="py-1">{{ po.vendor.name }}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1 text-gray-600 font-medium">ผู้ติดต่อ:</td>
+                        <td class="py-1">{{ po.vendor.contact_name }}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1 text-gray-600 font-medium">โทรศัพท์:</td>
+                        <td class="py-1">{{ po.vendor.phone }}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1 text-gray-600 font-medium">อีเมล:</td>
+                        <td class="py-1">{{ po.vendor.email }}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1 text-gray-600 font-medium align-top">ที่อยู่:</td>
+                        <td class="py-1 break-words">{{ po.vendor.address }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Items Table -->
+        <div class="mb-8">
+            <h2 class="text-lg font-semibold mb-4 border-b border-gray-200 pb-2">รายการสินค้า</h2>
+            <table class="w-full border-collapse table-fixed">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="border border-gray-300 px-4 py-2 text-left w-[8%] text-sm">ลำดับ</th>
+                        <th class="border border-gray-300 px-4 py-2 text-left w-[46%] text-sm">รายการ</th>
+                        <th class="border border-gray-300 px-4 py-2 text-center w-[14%] text-sm">จำนวน</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right w-[16%] text-sm">ราคาต่อหน่วย</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right w-[16%] text-sm">รวม</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in po.items.all %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="border border-gray-300 px-4 py-2 text-sm text-center">{{ forloop.counter }}</td>
+                        <td class="border border-gray-300 px-4 py-2">
+                            <div class="font-medium text-sm">{{ item.part.name }}</div>
+                            <div class="text-gray-600 text-xs">{{ item.part.description }}</div>
+                        </td>
+                        <td class="border border-gray-300 px-4 py-2 text-sm text-center">
+                            {{ item.quantity }} {{ item.part.unit }}
+                        </td>
+                        <td class="border border-gray-300 px-4 py-2 text-right text-sm">
+                            ฿{{ item.unit_price|floatformat:2 }}
+                        </td>
+                        <td class="border border-gray-300 px-4 py-2 text-right text-sm">
+                            ฿{{ item.total_amount|floatformat:2 }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Totals -->
+        <div class="flex justify-end mb-8">
+            <table class="w-64">
+                <tr>
+                    <td class="text-right py-2 text-gray-600 font-medium">รวมเงิน:</td>
+                    <td class="text-right py-2 pl-4">฿{{ po.total_amount|floatformat:2 }}</td>
+                </tr>
+                <tr>
+                    <td class="text-right py-2 text-gray-600 font-medium">ภาษีมูลค่าเพิ่ม ({{ po.vat_percent }}%):</td>
+                    <td class="text-right py-2 pl-4">฿{{ po.vat_amount|floatformat:2 }}</td>
+                </tr>
+                <tr class="font-bold">
+                    <td class="text-right py-2 border-t text-gray-600">รวมทั้งสิ้น:</td>
+                    <td class="text-right py-2 pl-4 border-t">฿{{ po.grand_total|floatformat:2 }}</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- Notes -->
+        {% if po.notes %}
+        <div class="mb-8">
+            <h2 class="text-lg font-semibold mb-2 border-b border-gray-200 pb-2">หมายเหตุ</h2>
+            <p class="text-gray-700">{{ po.notes }}</p>
+        </div>
+        {% endif %}
+        
+        <!-- Signatures -->
+        <div class="flex justify-between mt-16 px-8">
+            <div class="text-center w-[40%]">
+                <div class="border-t border-gray-400 w-full mx-auto mb-2"></div>
+                <p>ผู้อนุมัติ</p>
+                <p class="text-sm text-gray-600">วันที่ ____/____/________</p>
+            </div>
+            
+            <div class="text-center w-[40%]">
+                <div class="border-t border-gray-400 w-full mx-auto mb-2"></div>
+                <p>ผู้สั่งซื้อ</p>
+                <p class="text-sm text-gray-600">วันที่ ____/____/________</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
